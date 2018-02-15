@@ -1,0 +1,7 @@
+
+# ignore development specific files
+
+*.code-workspace
+scripts/
+objs/
+.vscode/
