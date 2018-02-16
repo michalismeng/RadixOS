@@ -39,5 +39,7 @@ uint32_t atoui_hex(char* buffer, uint16_t length);
 uint32_t pow(uint32_t base, uint32_t exp);
 uint32_t ceil_division(uint32_t value, uint32_t divisor);
 
+int is_aligned(uint32_t value, uint32_t with);
+
 
 #endif

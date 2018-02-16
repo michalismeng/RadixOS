@@ -200,3 +200,8 @@ void memcpy(void* dest, void* source, uint32_t length)
 	for (uint32_t i = 0; i < length; i++)	// must be strictly less than length
 		new_ptr_d[i] = new_ptr_s[i];
 }
+
+int is_aligned(uint32_t value, uint32_t with)
+{
+	return (value % with) == 0;
+}

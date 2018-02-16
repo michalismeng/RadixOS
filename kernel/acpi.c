@@ -3,6 +3,8 @@
 #include <debug.h>
 #include <memcmp.h>
 
+#include <lapic.h>
+
 /* Private Functions */
 
 uint8_t sum(void* base, uint32_t length)
@@ -35,7 +37,7 @@ int madt_parse(acpi_dt_header_t* header)
 {
     madt_descriptor_t* madt = (madt_descriptor_t*)header;
     printfln("madt: %h %c%c %u", madt, madt->acpi_header.signature[0], madt->acpi_header.signature[1], madt->flags);
-
+    
     //parse each entry of the madt table
     uint8_t* start = (uint8_t*)(madt + 1);                      // the entries start at the end of the madt
     uint8_t* end = (uint8_t*)madt + madt->acpi_header.length;   // the entries end is defined by the length of the acpi header
