@@ -34,4 +34,10 @@ typedef uint8_t* va_list;
 #define va_end(pointer) (  pointer = (va_list) 0x0  )
 #define va_arg(pointer, arg_type) ( *(arg_type*)( (pointer += sz(arg_type)) - sz(arg_type) ) )
 
+// dereference macros
+#define deref8(x)  *(uint8_t*) (x)
+#define deref16(x) *(uint16_t*)(x)
+#define deref32(x) *(uint32_t*)(x)
+
+
 #endif

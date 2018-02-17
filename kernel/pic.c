@@ -20,7 +20,12 @@ void pic_disable()
     outportb(PIC_PRIMARY_DATA_PORT, PRIMARY_IRQ_LINE_2);
 	outportb(PIC_SLAVE_DATA_PORT, SLAVE_IRQ_LINE_2);
 
-    // send the fourth data packet masking all interrupts
+    // send the fourth data packet defining 80x86 mode of operation 
+
+    outportb(PIC_PRIMARY_DATA_PORT, OPERATION_80x86);
+	outportb(PIC_SLAVE_DATA_PORT, OPERATION_80x86);
+
+    // mask all interrupts, effectively disabling the PIC
 
     outportb(PIC_PRIMARY_DATA_PORT, 0xFF);
 	outportb(PIC_SLAVE_DATA_PORT, 0xFF);

@@ -28,7 +28,7 @@ run-uni: all
 
 # rule to compile c source file
 $(TARGET_OBJS)/%.o: %.c
-	$$elf_gcc -c $< -o $@ -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES)
+	$$elf_gcc -c $< -o $@ -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES) #-fno-asynchronous-unwind-tables
 
 $(TARGET_OBJS)/%.o: libk/%.c
 	$$elf_gcc -c $< -o $(patsubst libk/%,%,$@) -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES)

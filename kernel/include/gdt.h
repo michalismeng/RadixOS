@@ -37,21 +37,6 @@ typedef struct gdt_ptr_struct_t
 
 }gdt_ptr_t;
 
-struct idt_entry_struct
-{
-	uint16_t base_low;		// the lower 16 bits of the base of the addres to execute when the interrupt fires
-	uint16_t selector;		// the kernel segment selector
-	uint8_t always0;
-	uint8_t flags;			// flags
-	uint16_t base_high;		// the higher 16 bits of the address to execute
-};
-
-struct idt_ptr_struct
-{
-	uint16_t limit;			// the size of the idt table MINUS one again as gdt table
-	uint32_t base;			// the addres of the first idt_entry_t struct
-};
-
 #pragma pack(pop)
 
 void gdt_set_gate(uint16_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags);
