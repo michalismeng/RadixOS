@@ -7,48 +7,15 @@
 #include <phys_mem_manager.h>
 #include <idt.h>
 #include <ioapic.h>
+#include <lapic.h>
+#include <heap_manager.h>
+#include <pit.h>
+
+#include <ap_boot.h>
 
 extern void* lapic_base;
 extern void* ioapic_base;
-extern volatile int count;
-
-// TODO: Move these to a proper file
-#define TERMINAL_COUNT			0 << 1
-#define PROG_ONESHOT			1 << 1
-#define RATE_GENERATOR			2 << 1	// used for the timer
-#define SQR_WAVE_GENERATOR		3 << 1	// used for the speaker
-#define SOFT_TRIGGER			4 << 1
-#define HARD_TRIGGER			5 << 1
-
-#define LATCH					0 << 4
-#define LSB_ONLY				1 << 4		// least significand byte
-#define MSB_ONLY				2 << 4		// most significand byte only
-#define LSB_THEN_MSB			3 << 4
-
-#define COUNTER_0				0 << 6
-#define COUNTER_1				1 << 6
-#define COUNTER_2				2 << 6
-
-void init_pit_timer(uint32_t _frequency)
-{
-	//frequency = _frequency;
-
-	// frequency must be such that count fits in a 16-bit variable.
-	uint16_t count = 1193180 / _frequency;
-	//initialization command byte
-
-	uint8_t cw = RATE_GENERATOR | LSB_THEN_MSB | COUNTER_0;
-
-	outportb(0x43, cw);
-
-	uint8_t l = (uint8_t)(count & 0x00FF);
-	uint8_t h = (uint8_t)((count >> 8) & 0x00FF);
-
-	outportb(0x40, l);	// send the least significand byte first
-	outportb(0x40, h);	// then send the most.
-}
-
-/////////////////////////////////////////////////////
+extern uint32_t pit_count;
 
 void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 {
@@ -117,18 +84,40 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	if(rsdp_parse(rsdp) != 0)
 		PANIC("error occured during rsdp parsing!");
 
-	init_pit_timer(1000);
+	pit_timer_init(1000);
 	lapic_enable(lapic_base);
 	ioapic_map_irq(ioapic_base, 0, 2, 64);
 
 	ClearScreen();
 	asm("sti");
 
+	memcpy(0x8000, ap_boot_bin, ap_boot_bin_len);
+
+	lapic_send_ipi(lapic_base, 1, 0, LAPIC_DELIVERY_INIT, 0, 0);
+	pit_sleep(101);
+
+	printfln("init sent");
+
+	lapic_send_ipi(lapic_base, 1, 8, LAPIC_DELIVERY_SIPI, 0, 0);
+
+	pit_sleep(2);
+
+	printfln("processor ready");
+
+	lapic_send_ipi(lapic_base, 1, 0, LAPIC_DELIVERY_NORMAL, 0, 0);
+
+	heap_t* h = heap_create(0, 1000);
+	int* ptr = heap_alloc_a(h, 4, 15);
+
+	printfln("allocated ptr: %h", ptr);
+
+	pit_sleep(2000);
+
 	while(1)
 	{
 		int tempX = cursorX, tempY = cursorY;
-		SetPointer(0, SCREEN_HEIGHT - 1);
-		printfln("time: %u", count);
+		SetPointer(0, SCREEN_HEIGHT - 2);
+		printfln("time: %u", pit_count);
 
 		SetPointer(tempX, tempY);
 	}

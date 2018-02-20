@@ -176,11 +176,11 @@ void isr_handler(registers_t regs)
 	//lapic_send_eoi(lapic_base);
 }
 
-volatile int count = 0;
+volatile int pit_count = 0;
 
 void irq_handler(registers_t regs)
 {
 	if(regs.int_no == 64)
-		count++;
+		pit_count++;
 	lapic_send_eoi(lapic_base);
 }

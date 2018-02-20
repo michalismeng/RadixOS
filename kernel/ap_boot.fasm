@@ -1,0 +1,28 @@
+; This is the execution code for the APs. It is meant to be compiled to flat binary.
+
+; Use xxd to convert to c-style hex array 
+; Then memcpy the result to the desired boot memory location
+
+org 0x8000          ; Change this based on where the page of the SIPI is set
+
+                    ; perform standard 16-bit boot procedure
+bits 16
+
+jmp start
+
+
+start:
+    xor bx, bx
+    mov ah, 2
+    mov dh, 0
+    mov dl, 0
+    int 10h
+
+    ; test: write to screen at (0,0) to confirm that the processor has started
+    xor bx, bx
+    mov ah, 0x0E
+    mov al, 'A'
+    int 10h
+
+    cli
+    hlt

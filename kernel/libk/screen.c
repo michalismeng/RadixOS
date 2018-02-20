@@ -25,12 +25,12 @@ void UpdateCursor()
 	/* CRT address register is 0x3D4 */
 	/* CRT data    register is 0x3D5 */
 
-	// uint16_t temp = SCREEN_WIDTH * cursorY + cursorX;
+	uint16_t temp = SCREEN_WIDTH * cursorY + cursorX;
 
-	// outportb(0x3D4, 14);
-	// outportb(0x3D5, temp >> 8);	// CRT register send high byte location of the cursor
-	// outportb(0x3D4, 15);
-	// outportb(0x3D5, temp);		// then send the low byte location of the cursor
+	outportb(0x3D4, 14);
+	outportb(0x3D5, temp >> 8);	// CRT register send high byte location of the cursor
+	outportb(0x3D4, 15);
+	outportb(0x3D5, temp);		// then send the low byte location of the cursor
 }
 
 void SetCursor(uint16_t x, uint16_t y)

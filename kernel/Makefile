@@ -1,5 +1,7 @@
-CC := $$elf_gcc# 		path to cross compiler
-AS := $$elf_as# 		path to cross assembler
+CC := $$elf_gcc# 		path to cross compiler		(i686-elf-gcc)
+AS := $$elf_as# 		path to cross assembler		(i686-elf-as)
+
+# The current makefile configuration does not take into account include file dependencies!
 
 SOURCES := $(wildcard *.c)
 ASSEMS 	:= $(wildcard *.s)
@@ -29,6 +31,12 @@ run-uni: all
 	grub-file --is-x86-multiboot radixOS.bin
 	qemu-system-i386 -m 128 -kernel radixOS.bin
 
+# compile the processor boot code into flat binary and turn it into c-style array
+ap_boot: ap_boot.fasm
+	nasm -f bin $< -o ap_boot.bin
+	xxd -i ap_boot.bin > include/ap_boot.h
+	rm ap_boot.bin
+
 # rule to compile c source file
 $(TARGET_OBJS)/%.o: %.c
 	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES) #-fno-asynchronous-unwind-tables
@@ -48,3 +56,4 @@ $(TARGET_OBJS)/%.o: %.asm
 clean:
 	rm -f radixOS.bin
 	rm -rf objs/*
+	rm include/ap_boot.h
