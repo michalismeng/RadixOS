@@ -10,12 +10,24 @@
 #include <lapic.h>
 #include <heap_manager.h>
 #include <pit.h>
+#include <gst.h>
+#include <per_cpu_data.h>
 
 #include <ap_boot.h>
 
-extern void* lapic_base;
-extern void* ioapic_base;
 extern uint32_t pit_count;
+
+gst_t gst;
+extern void _print_A();
+volatile int ready = 0;
+
+void setup_processor()
+{
+	ready = 1;
+	_print_A();
+
+	while(1);
+}
 
 void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 {
@@ -29,7 +41,10 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	gdt_set_gate(1, 0, 0xFFFFFFFF, GDT_RW | GDT_EX, GDT_SZ | GDT_GRAN);
 	gdt_set_gate(2, 0, 0xFFFFFFFF, GDT_RW, GDT_SZ | GDT_GRAN);
 
-	gdtr_install();
+	gdt_set_gate(3, 0, 0, GDT_RW, GDT_SZ | GDT_GRAN);		// these are here for the user (not yet implemented)
+	gdt_set_gate(4, 0, 0, GDT_RW, GDT_SZ | GDT_GRAN);
+
+	gdtr_install(5);
 
 	idt_init();
 	idtr_install();
@@ -73,6 +88,9 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	phys_mem_print();
 
+	memset(&gst, 0, sizeof(gst_t));
+	gst.per_cpu_data_base = 0x10000;			// fix this!!
+
 	// parse acpi tables !!!
 	rsdp_descriptor_t* rsdp = rsdp_find();
 
@@ -84,34 +102,63 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	if(rsdp_parse(rsdp) != 0)
 		PANIC("error occured during rsdp parsing!");
 
+	// test part that enables the 2nd cpu, redirects it to the "setup_processor" function and uses some per cpu data
+
 	pit_timer_init(1000);
-	lapic_enable(lapic_base);
-	ioapic_map_irq(ioapic_base, 0, 2, 64);
+	lapic_enable(gst.lapic_base);
+	ioapic_map_irq(gst.ioapic_base, 0, 2, 64);
+
+	printfln("gst: %u %h %h %h", gst.processor_count, gst.lapic_base, gst.ioapic_base, gst.per_cpu_data_base);
+
+	per_cpu_data_t* cpu_data = (per_cpu_data_t*)gst.per_cpu_data_base + 1;		// skip the current processor that is already initialized
+
+	while(cpu_data->id != 0)
+	{
+		// initialize processor
+		printfln("cpu id: %u", cpu_data->id);
+		gdt_set_gate(4 + cpu_data->id, (uint32_t)cpu_data, sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
+
+		cpu_data++;
+	}
+
+	// reinstall gdt
+	gdtr_install(6 + gst.processor_count);
+
+	_set_cpu_gs(5 * 8);
+	per_cpu_write(PER_CPU_OFFSET(test_data), 10);
+	printfln("value at gs: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
 
 	ClearScreen();
 	asm("sti");
+	extern gdt_ptr_t gdtr;
+
+	memcpy(0x7000, (uint32_t*)gdtr.base, 3 * sizeof(gdt_entry_t));
 
 	memcpy(0x8000, ap_boot_bin, ap_boot_bin_len);
+	*(uint32_t*)0x8002 = setup_processor;
+	*(gdt_ptr_t*)0x8006 = gdtr;
+	printfln("length: %u", ap_boot_bin_len);
 
-	lapic_send_ipi(lapic_base, 1, 0, LAPIC_DELIVERY_INIT, 0, 0);
+	ready = 0;
+	lapic_send_ipi(gst.lapic_base, 1, 0, LAPIC_DELIVERY_INIT, 0, 0);
 	pit_sleep(101);
 
-	printfln("init sent");
+	printfln("init sent ");
 
-	lapic_send_ipi(lapic_base, 1, 8, LAPIC_DELIVERY_SIPI, 0, 0);
+	lapic_send_ipi(gst.lapic_base, 1, 8, LAPIC_DELIVERY_SIPI, 0, 0);
 
 	pit_sleep(2);
 
-	printfln("processor ready");
+	while(!ready){}
 
-	lapic_send_ipi(lapic_base, 1, 0, LAPIC_DELIVERY_NORMAL, 0, 0);
+	printfln("processor awaken");
 
-	heap_t* h = heap_create(0, 1000);
-	int* ptr = heap_alloc_a(h, 4, 15);
-
-	printfln("allocated ptr: %h", ptr);
-
-	pit_sleep(2000);
+	//////////
+	while(1)
+	{
+		pit_sleep(1000);
+		printf("| ");
+	}
 
 	while(1)
 	{

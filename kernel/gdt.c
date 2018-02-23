@@ -19,10 +19,10 @@ void gdt_set_gate(uint16_t num, uint32_t base, uint32_t limit, uint8_t access, u
 	gdt_entries[num].access = access | (1 << 7) | (1 << 4);		// OR with Present and always1 bit
 }
 
-void gdtr_install()
+void gdtr_install(uint32_t count)
 {
 	gdtr.base = (uint32_t)gdt_entries;
-	gdtr.limit = 5 * sizeof(gdt_entry_t) - 1;
+	gdtr.limit = count * sizeof(gdt_entry_t) - 1;
 
 	_flushGDT(&gdtr);
 }

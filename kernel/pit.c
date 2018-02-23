@@ -1,6 +1,8 @@
 #include <pit.h>
 
 uint32_t pit_frequency;
+extern volatile uint32_t pit_count;
+
 
 void pit_timer_init(uint32_t _frequency)
 {
@@ -19,12 +21,17 @@ void pit_timer_init(uint32_t _frequency)
 
 	outportb(0x40, l);	// send the least significand byte first
 	outportb(0x40, h);	// then send the most.
+	pit_count = 0;
+}
+
+volatile uint32_t millis()
+{
+	return (1000 * pit_count) / pit_frequency;
 }
 
 void pit_sleep(uint32_t time)
 {
-    extern volatile uint32_t pit_count;
-    volatile uint32_t cur_time = pit_count;
+    volatile uint32_t cur_time = millis();
 
-    while(pit_count - cur_time < time);
+    while(millis() - cur_time < time);
 }

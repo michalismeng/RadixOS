@@ -3,26 +3,50 @@
 ; Use xxd to convert to c-style hex array 
 ; Then memcpy the result to the desired boot memory location
 
-org 0x8000          ; Change this based on where the page of the SIPI is set
+org 0x8000              ; Change this based on where the page of the SIPI is set
 
-                    ; perform standard 16-bit boot procedure
+                    	; perform standard 16-bit boot procedure
 bits 16
 
 jmp start
 
+; arguments required for minimal setup
+; must be passed by the BSP upon initialization
+; these must stay read-only fields
+c_setup_proc:  dd 0						; c code function that conties the setup
+gdtr:          dw 0						; common gdt
+               dd 0		
 
 start:
-    xor bx, bx
-    mov ah, 2
-    mov dh, 0
-    mov dl, 0
-    int 10h
+    cli
+	xor 	ax, ax						; zero segments as we use org directive
+	mov     ds, ax
+	mov		es, ax
+	mov     fs, ax
+	mov     gs, ax
+				
+	mov     ss, ax						; setup a dummy stack 
+	mov     sp, 0x7C00		
 
-    ; test: write to screen at (0,0) to confirm that the processor has started
-    xor bx, bx
-    mov ah, 0x0E
-    mov al, 'A'
-    int 10h
+    lgdt [gdtr]
+
+    mov eax, cr0						; enter protected mode
+    or eax, 1
+    mov cr0, eax
+    
+	jmp 0x08:.reload_segments
+
+bits 32
+	.reload_segments:
+
+        mov ax, 0x10
+        mov ds, ax
+        mov es, ax
+        mov fs, ax
+        mov gs, ax
+        mov ss, ax
+
+    	jmp dword [c_setup_proc]
 
     cli
     hlt

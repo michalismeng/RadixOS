@@ -1,9 +1,7 @@
 #include <idt.h>
 #include <utility.h>
-
+#include <gst.h>
 #include <lapic.h>
-
-extern void* lapic_base;
 
 idt_entry_t idt_entries[256];
 idt_ptr_t idtr;
@@ -172,7 +170,7 @@ void idtr_install()
 
 void isr_handler(registers_t regs)
 {
-    printfln("isr %h", regs.ds);
+	printfln("isr %u", regs.int_no);
 	//lapic_send_eoi(lapic_base);
 }
 
@@ -182,5 +180,5 @@ void irq_handler(registers_t regs)
 {
 	if(regs.int_no == 64)
 		pit_count++;
-	lapic_send_eoi(lapic_base);
+	lapic_send_eoi(gst.lapic_base);
 }

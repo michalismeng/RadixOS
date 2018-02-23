@@ -2,10 +2,8 @@
 #include <string.h>
 #include <debug.h>
 #include <memcmp.h>
-
-void* lapic_base;
-void* ioapic_base;
-
+#include <gst.h>
+#include <per_cpu_data.h>
 
 /* Private Functions */
 
@@ -39,7 +37,15 @@ int madt_parse(acpi_dt_header_t* header)
 {
     madt_descriptor_t* madt = (madt_descriptor_t*)header;
     printfln("madt: %h %c%c %u", madt, madt->acpi_header.signature[0], madt->acpi_header.signature[1], madt->flags);
-    lapic_base = madt->lapic_addr;
+
+    if(madt->flags == 0)
+    {
+        printfln("found disabled processor");
+        return 0;
+    }
+
+    gst.processor_count++;
+    gst.lapic_base = madt->lapic_addr;
     
     //parse each entry of the madt table
     uint8_t* start = (uint8_t*)(madt + 1);                      // the entries start at the end of the madt
@@ -53,12 +59,16 @@ int madt_parse(acpi_dt_header_t* header)
         {
             madt_lapic_descriptor_t* lapic = (madt_lapic_descriptor_t*)madt_entry;
             printfln("madt LAPIC: %u with processor: %u flags: %u", lapic->apic_id, lapic->processor_id, lapic->flags);
+
+            per_cpu_data_t* cpu_data = (per_cpu_data_t*)gst.per_cpu_data_base + lapic->processor_id;
+            cpu_data->id = lapic->processor_id;
+            cpu_data->test_data = 150;
         }
         else if(madt_entry->entry_type == IOAPIC)
         {
             madt_ioapic_descriptor_t* ioapic = (madt_ioapic_descriptor_t*)madt_entry;
             printfln("madt IOAPIC: %u address %h", ioapic->ioapic_id, ioapic->ioapic_addr);
-            ioapic_base = ioapic->ioapic_addr;
+            gst.ioapic_base = ioapic->ioapic_addr;
         }
         else
             printfln("madt entry: %u", madt_entry->entry_type);
@@ -116,7 +126,10 @@ int rsdp_parse(rsdp_descriptor_t* rsdp)
 		if(memcmp(header->signature, "APIC", 4) == 0)
         {
             if(madt_parse(header) != 0)
+            {
+                gst.MADT_base = (madt_descriptor_t*)header;
                 return 1;
+            }
         }
         // do other checks for FADT, SLIT...
 	}

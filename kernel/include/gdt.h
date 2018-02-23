@@ -40,7 +40,7 @@ typedef struct gdt_ptr_struct_t
 #pragma pack(pop)
 
 void gdt_set_gate(uint16_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags);
-void gdtr_install();
+void gdtr_install(uint32_t count);
 
 void gdt_print_gate(uint16_t num);
 
