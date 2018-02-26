@@ -15,18 +15,33 @@
 
 #include <ap_boot.h>
 
-extern uint32_t pit_count;
-
-gst_t gst;
-extern void _print_A();
 volatile int ready = 0;
 
 void setup_processor()
 {
+	// test AP local data
+	printfln("test data unmodified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));	
+	per_cpu_write(PER_CPU_OFFSET(test_data), 400);
+	printfln("test data modified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
+
+	// give the mark to the main cpu to continue waking up processors
 	ready = 1;
-	_print_A();
 
 	while(1);
+}
+
+// startup the processor with 'id' and set it to execute at 'exec_base'
+void processor_startup(uint32_t lapic_id, physical_addr exec_base)
+{
+	// implement intel protocol for processor boot 
+	
+	// send the INIT interrupt and wait for 100ms
+	lapic_send_ipi(get_gst()->lapic_base, lapic_id, 0, LAPIC_DELIVERY_INIT, 0, 0);
+	pit_sleep(100);
+
+	// send the STARTUP interrupt and wait for 1ms
+	lapic_send_ipi(get_gst()->lapic_base, lapic_id, exec_base >> 12, LAPIC_DELIVERY_SIPI, 0, 0);
+	pit_sleep(1);
 }
 
 void kernel_main(multiboot_info_t* mbd, unsigned int magic)
@@ -35,24 +50,27 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	SetBackgroundColor(VGA_COLOR_BLACK);
 	ClearScreen();
 
-	Print("Hello this is RadixOS\n");
+	Print("Hello this is RadixOS \n");
 
-	gdt_set_gate(0, 0, 0, 0, 0);
-	gdt_set_gate(1, 0, 0xFFFFFFFF, GDT_RW | GDT_EX, GDT_SZ | GDT_GRAN);
-	gdt_set_gate(2, 0, 0xFFFFFFFF, GDT_RW, GDT_SZ | GDT_GRAN);
+	// initialize the global system table
+	memset(get_gst(), 0, sizeof(gst_t));
 
-	gdt_set_gate(3, 0, 0, GDT_RW, GDT_SZ | GDT_GRAN);		// these are here for the user (not yet implemented)
-	gdt_set_gate(4, 0, 0, GDT_RW, GDT_SZ | GDT_GRAN);
+	// setup a dummy gdt
+	gdt_set_gate(GDT_BASE_DUMMY, 0, 0, 0, 0, 0);
+	gdt_set_gate(GDT_BASE_DUMMY, 1, 0, 0xFFFFFFFF, GDT_RW | GDT_EX, GDT_SZ | GDT_GRAN);
+	gdt_set_gate(GDT_BASE_DUMMY, 2, 0, 0xFFFFFFFF, GDT_RW, GDT_SZ | GDT_GRAN);
 
-	gdtr_install(5);
+	// intstall the dummy gdt
+	gdtr_install(GDT_BASE_DUMMY, 3, &get_gst()->gdtr);
 
+	// initialize the idt
 	idt_init();
 	idtr_install();
 
 	// disable the PIC so we can use the local apic
 	pic_disable();
 
-	// initialize physical memory manager
+	// --------------------------- physical memory manager ---------------------------
 	if(phys_mem_manager_init(0x100000) != 0)
 		PANIC("Could not initialize physical memory manager");
 
@@ -88,83 +106,117 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	phys_mem_print();
 
-	memset(&gst, 0, sizeof(gst_t));
-	gst.per_cpu_data_base = 0x10000;			// fix this!!
+	// --------------------------- end: physical memory manager ---------------------------
 
-	// parse acpi tables !!!
+	// --------------------------- parse acpi tables !!! ---------------------------
 	rsdp_descriptor_t* rsdp = rsdp_find();
 
-	if(rsdp != 0)
-		rsdp_print(rsdp);
-	else
+	if(rsdp == 0)
 		PANIC("RSDP could not be found.. TODO: Parse mp tables");
 
+	get_gst()->RSDP_base = rsdp;				// store the rsd pointer for future access
+
+	// perform the enumeration of acpi resources
+	if(rsdp_first_parse(rsdp) != 0)
+		PANIC("error occured during first rsdp parsing!");
+
+	printfln("acpi resources: lapic: %h, rsdp: %h, processors: %u", get_gst()->lapic_base, get_gst()->RSDP_base, get_gst()->processor_count);
+
+	// allocated memory for the acpi resources
+	heap_t* kheap = heap_create(0x150000, 4096);		// create a heap with 4 KB capacity
+	void* addr;
+
+	// allocate memory for per cpu data
+	// TODO: Consider cache line alignment
+	if((addr = heap_alloc_a(kheap, get_gst()->processor_count * sizeof(per_cpu_data_t), 4)) == 0)
+		PANIC("per cpu data heap allocation failed");
+	else
+		get_gst()->per_cpu_data_base = (per_cpu_data_t*)addr;
+
+	// allocate memory for the gdt entries (5 permanent for the kernel and the user and one for each processor, see below)
+	if((addr = heap_alloc_a(kheap, GDT_GENERAL_ENTRIES + get_gst()->processor_count * sizeof(gdt_entry_t), 4)) == 0)
+		PANIC("gdt entries heap allocation failed");
+	else
+		get_gst()->gdt_entries = (gdt_entry_t*)addr;
+
+	// ensure i/o apic count == 1
+	if(get_gst()->ioapic_count != 1)
+		PANIC("ioapic count != 1. System not ready for this case");
+
+	// using the memory previously allocated, fill in the acpi data structures (mainly per_cpu_data)
 	if(rsdp_parse(rsdp) != 0)
 		PANIC("error occured during rsdp parsing!");
 
-	// test part that enables the 2nd cpu, redirects it to the "setup_processor" function and uses some per cpu data
+	// --------------------------- end: parse acpi tables !!! ---------------------------
+
+	// setup the new gdt
+	gdt_set_gate(get_gst()->gdt_entries, 0, 0, 0, 0, 0);
+	gdt_set_gate(get_gst()->gdt_entries, 1, 0, 0xFFFFFFFF, GDT_RW | GDT_EX, GDT_SZ | GDT_GRAN);
+	gdt_set_gate(get_gst()->gdt_entries, 2, 0, 0xFFFFFFFF, GDT_RW, GDT_SZ | GDT_GRAN);
+
+	gdt_set_gate(get_gst()->gdt_entries, 3, 0, 0, GDT_RW | GDT_USER, GDT_SZ | GDT_GRAN);		// these are here for the userspace (not yet implemented)
+	gdt_set_gate(get_gst()->gdt_entries, 4, 0, 0, GDT_RW | GDT_USER, GDT_SZ | GDT_GRAN);
+
+	// setup a gdt entry for per cpu data (the gs segment will point to these) for each processor
+	for(uint32_t i = 0; i < get_gst()->processor_count; i++)
+	{
+		uint32_t cpu_id = get_gst()->per_cpu_data_base[i].id;			// this should equal the loop counter
+		uint32_t base = (uint32_t)&get_gst()->per_cpu_data_base[i];
+
+		gdt_set_gate(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + cpu_id, base, sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
+	}
+
+	gdt_print_gate(get_gst()->gdt_entries, 5);
+	gdt_print_gate(get_gst()->gdt_entries, 6);
+
+	// intstall the new gdt structure
+	gdtr_install(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + get_gst()->processor_count, &get_gst()->gdtr);
+	printfln("gdts are set");
+
+	// boot each processor (except for the current one which is already running ...)
 
 	pit_timer_init(1000);
-	lapic_enable(gst.lapic_base);
-	ioapic_map_irq(gst.ioapic_base, 0, 2, 64);
+	lapic_enable(get_gst()->lapic_base);
+	ioapic_map_irq(get_gst()->ioapic_base, 0, 2, 64);
 
-	printfln("gst: %u %h %h %h", gst.processor_count, gst.lapic_base, gst.ioapic_base, gst.per_cpu_data_base);
-
-	per_cpu_data_t* cpu_data = (per_cpu_data_t*)gst.per_cpu_data_base + 1;		// skip the current processor that is already initialized
-
-	while(cpu_data->id != 0)
-	{
-		// initialize processor
-		printfln("cpu id: %u", cpu_data->id);
-		gdt_set_gate(4 + cpu_data->id, (uint32_t)cpu_data, sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
-
-		cpu_data++;
-	}
-
-	// reinstall gdt
-	gdtr_install(6 + gst.processor_count);
-
-	_set_cpu_gs(5 * 8);
-	per_cpu_write(PER_CPU_OFFSET(test_data), 10);
-	printfln("value at gs: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
-
-	ClearScreen();
 	asm("sti");
-	extern gdt_ptr_t gdtr;
-
-	memcpy(0x7000, (uint32_t*)gdtr.base, 3 * sizeof(gdt_entry_t));
-
+	ClearScreen();
+	// this is a hardcoded memory location required to assemble 'ap_boot.fasm'
 	memcpy(0x8000, ap_boot_bin, ap_boot_bin_len);
 	*(uint32_t*)0x8002 = setup_processor;
-	*(gdt_ptr_t*)0x8006 = gdtr;
-	printfln("length: %u", ap_boot_bin_len);
+	*(gdt_ptr_t*)0x8006 = get_gst()->gdtr;
 
-	ready = 0;
-	lapic_send_ipi(gst.lapic_base, 1, 0, LAPIC_DELIVERY_INIT, 0, 0);
-	pit_sleep(101);
+	printfln("cpu %u booted", get_gst()->per_cpu_data_base[0].id);
+	
 
-	printfln("init sent ");
-
-	lapic_send_ipi(gst.lapic_base, 1, 8, LAPIC_DELIVERY_SIPI, 0, 0);
-
-	pit_sleep(2);
-
-	while(!ready){}
-
-	printfln("processor awaken");
-
-	//////////
-	while(1)
+	for(int i = 1; i < get_gst()->processor_count; i++)
 	{
-		pit_sleep(1000);
-		printf("| ");
+		if(get_gst()->per_cpu_data_base[i].enabled == 0)
+			continue;
+
+		ready = 0;
+		*(uint16_t*)0x800C = get_gst()->per_cpu_data_base[i].id + GDT_GENERAL_ENTRIES;		// set the ID to fix the gs segment
+		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
+
+		// wait for the processor to gracefully boot 
+		while(ready == 0);
+		printfln("cpu: %u booted ", get_gst()->per_cpu_data_base[i].id);
 	}
 
+	printfln("all processors booted");
+
+	// test cpu local data for BSP
+	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
+	printfln("test data unmodified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
+	per_cpu_write(PER_CPU_OFFSET(test_data), 15);
+	printfln("test data modified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
+
+	
 	while(1)
 	{
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 2);
-		printfln("time: %u", pit_count);
+		printfln("time: %u", millis());
 
 		SetPointer(tempX, tempY);
 	}

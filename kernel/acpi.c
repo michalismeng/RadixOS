@@ -32,20 +32,44 @@ rsdp_descriptor_t* rsdp_find_in(physical_addr base, uint32_t length)
     return 0;
 }
 
+// perform first pass (enumeration) of a MADT entry
+int madt_first_parse(acpi_dt_header_t* header)
+{
+    madt_descriptor_t* madt = (madt_descriptor_t*)header;
+    
+    get_gst()->lapic_base = madt->lapic_addr;
+
+    // parse each entry of the madt table
+    uint8_t* start = (uint8_t*)(madt + 1);                      // the entries start at the end of the madt
+    uint8_t* end = (uint8_t*)madt + madt->acpi_header.length;   // the entries end is defined by the length of the acpi header
+
+    for(uint8_t* ptr = start; ptr < end;)
+    {
+        madt_entry_header_t* madt_entry = (madt_entry_header_t*)ptr;
+
+        // enumerate system resources
+        switch(madt_entry->entry_type)
+        {
+            case LAPIC:
+                get_gst()->processor_count++;
+                break;
+            case IOAPIC:
+                get_gst()->ioapic_count++;
+                break;
+            default:
+                break;                      
+        }
+
+        ptr += madt_entry->entry_length;    
+    }
+
+    return 0;
+}
+
 // parses a madt (APIC) entry
 int madt_parse(acpi_dt_header_t* header)
 {
     madt_descriptor_t* madt = (madt_descriptor_t*)header;
-    printfln("madt: %h %c%c %u", madt, madt->acpi_header.signature[0], madt->acpi_header.signature[1], madt->flags);
-
-    if(madt->flags == 0)
-    {
-        printfln("found disabled processor");
-        return 0;
-    }
-
-    gst.processor_count++;
-    gst.lapic_base = madt->lapic_addr;
     
     //parse each entry of the madt table
     uint8_t* start = (uint8_t*)(madt + 1);                      // the entries start at the end of the madt
@@ -58,17 +82,21 @@ int madt_parse(acpi_dt_header_t* header)
         if(madt_entry->entry_type == LAPIC)
         {
             madt_lapic_descriptor_t* lapic = (madt_lapic_descriptor_t*)madt_entry;
-            printfln("madt LAPIC: %u with processor: %u flags: %u", lapic->apic_id, lapic->processor_id, lapic->flags);
+            if(lapic->processor_id != lapic->apic_id)
+                PANIC("found processor id != local apic id");
 
-            per_cpu_data_t* cpu_data = (per_cpu_data_t*)gst.per_cpu_data_base + lapic->processor_id;
+            per_cpu_data_t* cpu_data = (per_cpu_data_t*)get_gst()->per_cpu_data_base + lapic->processor_id;
+
+            // assume ids are incremented by one for each processor (they serve as indices)
+            // TODO: This is a BAD assumption
             cpu_data->id = lapic->processor_id;
-            cpu_data->test_data = 150;
+            cpu_data->enabled = lapic->flags;
+            cpu_data->test_data = 150 + lapic->processor_id;
         }
         else if(madt_entry->entry_type == IOAPIC)
         {
             madt_ioapic_descriptor_t* ioapic = (madt_ioapic_descriptor_t*)madt_entry;
-            printfln("madt IOAPIC: %u address %h", ioapic->ioapic_id, ioapic->ioapic_addr);
-            gst.ioapic_base = ioapic->ioapic_addr;
+            get_gst()->ioapic_base = ioapic->ioapic_addr;
         }
         else
             printfln("madt entry: %u", madt_entry->entry_type);
@@ -85,7 +113,9 @@ rsdp_descriptor_t* rsdp_find()
 {
     rsdp_descriptor_t* rsdp = 0;
 
-    if((rsdp = rsdp_find_in(0xE0000, 0x20000)))        // search in the end of conventional memory
+    // search in the end of conventional memory
+
+    if((rsdp = rsdp_find_in(0xE0000, 0x20000)))        
         return rsdp;
     else
         printfln("rsdt not found in the end of conventional memory");
@@ -94,11 +124,13 @@ rsdp_descriptor_t* rsdp_find()
     uint16_t* base_mem_ptr = 0x400 + 0x13;  // pointer to the end of base memory
 	uint32_t data;
 
+    // search in the first KB of EBDA
+
 	if((data = *ebda_ptr) != 0)
 	{
 		data <<= 4;
 
-		if((rsdp = rsdp_find_in(data, 1024)))       // search in the first KB of EBDA
+		if((rsdp = rsdp_find_in(data, 1024)))       
             return rsdp;
 		else		                                // search in the end of base memory (again 1KB search)
             printfln("rsdt not found in the EBDA");
@@ -109,27 +141,47 @@ rsdp_descriptor_t* rsdp_find()
     return 0;
 }
 
-int rsdp_parse(rsdp_descriptor_t* rsdp)
+int rsdp_first_parse(rsdp_descriptor_t* rsdp)
 {
+    // require valid rsdp and acpi version 1 (which is implied by "version == 0" !!)
     if(rsdp == 0 || rsdp->revision != 0)
         return 1;
 
     rsdt_descriptor_t* rsdt = (rsdt_descriptor_t*)rsdp->rsdt_addr;
-	int entries = (rsdt->acpi_header.length - sizeof(acpi_dt_header_t)) / 4;
+	uint32_t entries = (rsdt->acpi_header.length - sizeof(acpi_dt_header_t)) / 4;
 
-	printfln("rsdt entries: %u", entries);
-
-	for(int i = 0; i < entries; i++)
+    for(uint32_t i = 0; i < entries; i++)
 	{
 		acpi_dt_header_t* header = (acpi_dt_header_t*)rsdt->sdt_ptrs[i];
 
-		if(memcmp(header->signature, "APIC", 4) == 0)
+		if(memcmp(header->signature, ACPI_MADT, 4) == 0)
+        {
+            if(madt_first_parse(header) != 0)
+                return 1;
+        }
+        // do first parse for other tables: FADT, SLIT...
+	}
+
+    return 0;
+}
+
+int rsdp_parse(rsdp_descriptor_t* rsdp)
+{
+    // require valid rsdp and acpi version 1 (which is implied by "version == 0" !!)    
+    if(rsdp == 0 || rsdp->revision != 0)
+        return 1;
+
+    rsdt_descriptor_t* rsdt = (rsdt_descriptor_t*)rsdp->rsdt_addr;
+	uint32_t entries = (rsdt->acpi_header.length - sizeof(acpi_dt_header_t)) / 4;
+
+	for(uint32_t i = 0; i < entries; i++)
+	{
+		acpi_dt_header_t* header = (acpi_dt_header_t*)rsdt->sdt_ptrs[i];
+
+		if(memcmp(header->signature, ACPI_MADT, 4) == 0)
         {
             if(madt_parse(header) != 0)
-            {
-                gst.MADT_base = (madt_descriptor_t*)header;
                 return 1;
-            }
         }
         // do other checks for FADT, SLIT...
 	}

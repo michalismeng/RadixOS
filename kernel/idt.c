@@ -180,5 +180,5 @@ void irq_handler(registers_t regs)
 {
 	if(regs.int_no == 64)
 		pit_count++;
-	lapic_send_eoi(gst.lapic_base);
+	lapic_send_eoi(get_gst()->lapic_base);
 }

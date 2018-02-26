@@ -1,7 +1,10 @@
 #ifndef GDT_H_10022018
 #define GDT_H_10022018
 
-#include <stdint.h>
+#include <types.h>
+
+#define GDT_BASE_DUMMY 			gdt_entries			// dummy gdt base for initial kernel setup (may be moved to boot.s)
+#define GDT_GENERAL_ENTRIES 	5					// number of entries for the general gdt (null entry, 2 kernel, 2 user)  TODO: add TSS
 
 enum GDT_FLAGS
 {
@@ -39,9 +42,11 @@ typedef struct gdt_ptr_struct_t
 
 #pragma pack(pop)
 
-void gdt_set_gate(uint16_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags);
-void gdtr_install(uint32_t count);
+extern gdt_entry_t gdt_entries[3];
 
-void gdt_print_gate(uint16_t num);
+void gdt_set_gate(gdt_entry_t* gdt_base, uint16_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags);
+void gdtr_install(physical_addr base, uint32_t count, gdt_ptr_t* gdtr);
+
+void gdt_print_gate(gdt_entry_t* gdt_base, uint16_t num);
 
 #endif

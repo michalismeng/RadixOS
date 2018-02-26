@@ -70,7 +70,7 @@ typedef struct madt_lapic_descriptor_struct_t
 
 	uint8_t processor_id;			// the id of the processor associated with the lapic
 	uint8_t apic_id;				// the id of the lapic
-	uint32_t flags;
+	uint32_t flags;					// if set then processor is enabled, otherwise disabled and we should not access it
 
 } madt_lapic_descriptor_t;
 
@@ -91,6 +91,9 @@ rsdp_descriptor_t* rsdp_find();
 
 // parses a root system descriptor pointer, examining its contained tables (ex. MADT)
 int rsdp_parse(rsdp_descriptor_t* rsdp);
+
+// perform first parse of the root system descriptor pointer, enumerating system core resources
+int rsdp_first_parse(rsdp_descriptor_t* rsdp);
 
 void rsdp_print(rsdp_descriptor_t* rsdp);
 

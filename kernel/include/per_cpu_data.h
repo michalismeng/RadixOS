@@ -13,11 +13,11 @@ extern void _set_cpu_gs(uint32_t gdt_offset);
 #define PER_CPU_OFFSET(field) offsetof(per_cpu_data_t, field)
 
 // defines the data, local to each processor
-// TODO: Consider cache-line alignment
 typedef struct per_cpu_data_struct_t
 {
-    uint32_t id;
-    uint32_t test_data;
+    uint32_t id;                // the processor id
+    uint32_t enabled;           // if set => processor can startup, otherwise do not initiate boot sequence
+    uint32_t test_data;         // random test data to check if gs segment addressing works
 
     // TODO: add scheduler queues and other cpu local stuff...
 

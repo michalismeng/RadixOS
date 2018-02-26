@@ -23,7 +23,7 @@ void heap_front_merge_block(heap_t* h, heap_block_t* b)
 }
 
 // returns true if the next block of prev is unused
-inline int heap_is_next_unused(heap_block_t* prev)
+int heap_is_next_unused(heap_block_t* prev)
 {
 	return (prev->next != 0 && prev->next->used == 0);
 }

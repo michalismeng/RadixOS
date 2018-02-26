@@ -1,9 +1,14 @@
 bits 32 
 
+section .data
+msg: db "processor gs: %u", 0
+
 section .text
 
 global _flushGDT
 global _print_A
+
+extern printfln
 
 _flushGDT:
 	mov eax, [esp + 4]		; get gdtr pointer
@@ -23,5 +28,8 @@ _flushGDT:
 
 			ret
 _print_A:
+
 	mov ebx, 0xB8000
 	mov byte [ebx], 'A'
+
+	ret
