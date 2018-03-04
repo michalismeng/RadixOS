@@ -12,7 +12,8 @@
 enum MADT_TYPE
 {
 	LAPIC = 0,
-	IOAPIC
+	IOAPIC,
+	INTERRUPT_OVERRIDE
 };
 
 // defines the layout of the acpi root system descriptor pointer
@@ -74,7 +75,7 @@ typedef struct madt_lapic_descriptor_struct_t
 
 } madt_lapic_descriptor_t;
 
-// ENTRY TPYE: 1, describes an I/O APIC entry (expect one per system)
+// ENTRY TPYE: 1, describes an I/O APIC entry (expect one per system for our kernel)
 typedef struct madt_ioapic_descriptor_struct_t
 {
 	madt_entry_header_t header;
@@ -85,6 +86,17 @@ typedef struct madt_ioapic_descriptor_struct_t
 	uint32_t global_interrupt_base;
 
 } madt_ioapic_descriptor_t;
+
+// ENTRY TYPE: 2, describes interrupt source override
+typedef struct madt_interrupt_override_descriptor_struct_t
+{
+	madt_entry_header_t header;
+
+	uint8_t bus_source;
+	uint8_t irq_source;
+	uint32_t global_system_int;
+	uint16_t flags;
+} madt_interrupt_override_descriptor_t;
 
 // searches the possible locations of RAM for a valid RDSP struct
 rsdp_descriptor_t* rsdp_find();

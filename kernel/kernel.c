@@ -160,10 +160,8 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	// setup a gdt entry for per cpu data (the gs segment will point to these) for each processor
 	for(uint32_t i = 0; i < get_gst()->processor_count; i++)
 	{
-		uint32_t cpu_id = get_gst()->per_cpu_data_base[i].id;			// this should equal the loop counter
 		uint32_t base = (uint32_t)&get_gst()->per_cpu_data_base[i];
-
-		gdt_set_gate(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + cpu_id, base, sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
+		gdt_set_gate(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + i, base, sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
 	}
 
 	gdt_print_gate(get_gst()->gdt_entries, 5);
@@ -177,7 +175,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	pit_timer_init(1000);
 	lapic_enable(get_gst()->lapic_base);
-	ioapic_map_irq(get_gst()->ioapic_base, 0, 2, 64);
+	ioapic_map_irq(get_gst()->ioapic_base, 0, gst_get_int_override(0), 64);
 
 	asm("sti");
 	ClearScreen();
@@ -188,14 +186,13 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	printfln("cpu %u booted", get_gst()->per_cpu_data_base[0].id);
 	
-
 	for(int i = 1; i < get_gst()->processor_count; i++)
 	{
 		if(get_gst()->per_cpu_data_base[i].enabled == 0)
 			continue;
 
 		ready = 0;
-		*(uint16_t*)0x800C = get_gst()->per_cpu_data_base[i].id + GDT_GENERAL_ENTRIES;		// set the ID to fix the gs segment
+		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		// set the ID to fix the gs segment
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
 
 		// wait for the processor to gracefully boot 
@@ -210,6 +207,8 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	printfln("test data unmodified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
 	per_cpu_write(PER_CPU_OFFSET(test_data), 15);
 	printfln("test data modified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
+
+	// end of boot for each processor
 
 	
 	while(1)

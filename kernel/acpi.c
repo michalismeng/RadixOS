@@ -74,6 +74,7 @@ int madt_parse(acpi_dt_header_t* header)
     //parse each entry of the madt table
     uint8_t* start = (uint8_t*)(madt + 1);                      // the entries start at the end of the madt
     uint8_t* end = (uint8_t*)madt + madt->acpi_header.length;   // the entries end is defined by the length of the acpi header
+    uint32_t cpu_index = 0;
 
     for(uint8_t* ptr = start; ptr < end;)
     {
@@ -85,18 +86,27 @@ int madt_parse(acpi_dt_header_t* header)
             if(lapic->processor_id != lapic->apic_id)
                 PANIC("found processor id != local apic id");
 
-            per_cpu_data_t* cpu_data = (per_cpu_data_t*)get_gst()->per_cpu_data_base + lapic->processor_id;
+            per_cpu_data_t cpu_data;
 
-            // assume ids are incremented by one for each processor (they serve as indices)
-            // TODO: This is a BAD assumption
-            cpu_data->id = lapic->processor_id;
-            cpu_data->enabled = lapic->flags;
-            cpu_data->test_data = 150 + lapic->processor_id;
+            cpu_data.id = lapic->processor_id;
+            cpu_data.enabled = lapic->flags;
+            cpu_data.test_data = 150 + lapic->processor_id;
+
+            // set the cpu data to its local storage
+            gst_add_processor(cpu_index++, lapic->processor_id, cpu_data);
         }
         else if(madt_entry->entry_type == IOAPIC)
         {
             madt_ioapic_descriptor_t* ioapic = (madt_ioapic_descriptor_t*)madt_entry;
             get_gst()->ioapic_base = ioapic->ioapic_addr;
+        }
+        else if(madt_entry->entry_type == INTERRUPT_OVERRIDE)
+        {
+            // assume all interrupts are Edge Trigerred and Active High
+            // TODO: Maintain a list of information foreach of the IO APICs pins.
+            // TODO: Use AML to parse PCI interrupt information
+            madt_interrupt_override_descriptor_t* override = (madt_interrupt_override_descriptor_t*)madt_entry;
+            gst_set_int_override(override->irq_source, override->global_system_int);
         }
         else
             printfln("madt entry: %u", madt_entry->entry_type);

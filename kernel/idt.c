@@ -132,6 +132,7 @@ void idt_init()
 	idt_set_gate(78, (uint32_t)apic_irq14, 0x08, IDT_INT);
 	idt_set_gate(79, (uint32_t)apic_irq15, 0x08, IDT_INT);
 
+	// setup legacy PIC IRQs to unused gates 
 	idt_set_gate(224, (uint32_t)irq0, 0x08, IDT_INT);
 	idt_set_gate(225, (uint32_t)irq1, 0x08, IDT_INT);
 	idt_set_gate(226, (uint32_t)irq2, 0x08, IDT_INT);
