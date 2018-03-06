@@ -40,14 +40,14 @@ volatile uint32_t pit_read_count()
 	return (((uint16_t)high) << 8) | low;
 }
 
-volatile uint32_t millis()
+volatile uint32_t pit_millis()
 {
 	return (1000 * pit_count) / pit_frequency;
 }
 
 void pit_sleep(uint32_t time)
 {
-    volatile uint32_t cur_time = millis();
+    volatile uint32_t cur_time = pit_millis();
 
-    while(millis() - cur_time < time);
+    while(pit_millis() - cur_time < time);
 }

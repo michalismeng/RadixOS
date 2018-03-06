@@ -30,6 +30,12 @@ void setup_processor()
 	while(1);
 }
 
+void final_processor_setup()
+{
+	// here we do the final setup of all the processors
+	// concerning virtual memory - lapic timers etc
+}
+
 // startup the processor with 'id' and set it to execute at 'exec_base'
 void processor_startup(uint32_t lapic_id, physical_addr exec_base)
 {
@@ -37,11 +43,11 @@ void processor_startup(uint32_t lapic_id, physical_addr exec_base)
 	
 	// send the INIT interrupt and wait for 100ms
 	lapic_send_ipi(get_gst()->lapic_base, lapic_id, 0, LAPIC_DELIVERY_INIT, 0, 0);
-	pit_sleep(100);
+	lapic_sleep(100);
 
 	// send the STARTUP interrupt and wait for 1ms
 	lapic_send_ipi(get_gst()->lapic_base, lapic_id, exec_base >> 12, LAPIC_DELIVERY_SIPI, 0, 0);
-	pit_sleep(1);
+	lapic_sleep(1);
 }
 
 void kernel_main(multiboot_info_t* mbd, unsigned int magic)
@@ -108,6 +114,9 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	// --------------------------- end: physical memory manager ---------------------------
 
+	// allocated memory for the acpi resources
+	heap_t* kheap = heap_create(0x150000, 4096);
+
 	// --------------------------- parse acpi tables !!! ---------------------------
 	rsdp_descriptor_t* rsdp = rsdp_find();
 
@@ -122,10 +131,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	printfln("acpi resources: lapic: %h, rsdp: %h, processors: %u", get_gst()->lapic_base, get_gst()->RSDP_base, get_gst()->processor_count);
 
-	// allocated memory for the acpi resources
-	heap_t* kheap = heap_create(0x150000, 4096);		// create a heap with 4 KB capacity
 	void* addr;
-
 	// allocate memory for per cpu data
 	// TODO: Consider cache line alignment
 	if((addr = heap_alloc_a(kheap, get_gst()->processor_count * sizeof(per_cpu_data_t), 4)) == 0)
@@ -149,7 +155,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	// --------------------------- end: parse acpi tables !!! ---------------------------
 
-	// setup the new gdt
+	// --------------------------- setup GDTs ---------------------------
 	gdt_set_gate(get_gst()->gdt_entries, 0, 0, 0, 0, 0);
 	gdt_set_gate(get_gst()->gdt_entries, 1, 0, 0xFFFFFFFF, GDT_RW | GDT_EX, GDT_SZ | GDT_GRAN);
 	gdt_set_gate(get_gst()->gdt_entries, 2, 0, 0xFFFFFFFF, GDT_RW, GDT_SZ | GDT_GRAN);
@@ -171,11 +177,21 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	gdtr_install(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + get_gst()->processor_count, &get_gst()->gdtr);
 	printfln("gdts are set");
 
+	// --------------------------- end: setup GDTs---------------------------
+
+	// --------------------------- boot all processors ---------------------------
+
 	// boot each processor (except for the current one which is already running ...)
 
-	pit_timer_init(1000, 0);
+	// prepare the PIT - not very useful now
+	//pit_timer_init(1000, 0);
 	lapic_enable(get_gst()->lapic_base);
-	ioapic_map_irq(get_gst()->ioapic_base, 0, gst_get_int_override(0), 224);
+	//ioapic_map_irq(get_gst()->ioapic_base, 0, gst_get_int_override(0), 224);
+
+	// calibrate the lapic timer of the BSP
+	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
+	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
+	per_cpu_write(PER_CPU_OFFSET(lapic_count), 0);
 
 	asm("sti");
 	ClearScreen();
@@ -186,7 +202,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	printfln("cpu %u booted", get_gst()->per_cpu_data_base[0].id);
 	
-	for(int i = 1; i < get_gst()->processor_count; i++)
+	for(uint32_t i = 1; i < get_gst()->processor_count; i++)
 	{
 		if(get_gst()->per_cpu_data_base[i].enabled == 0)
 			continue;
@@ -202,23 +218,14 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	printfln("all processors booted");
 
-	// test cpu local data for BSP
-	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
-	printfln("test data unmodified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
-	per_cpu_write(PER_CPU_OFFSET(test_data), 15);
-	printfln("test data modified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
-
-	// end of boot for each processor
-
-	lapic_start_timer(get_gst()->lapic_base);
-
-	extern volatile uint32_t lapic_count;
+	// --------------------------- end: boot all processors ---------------------------
 	
 	while(1)
 	{
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 2);
-		printfln("time: %u", lapic_count * 10);
+
+		printfln("time: %u %u", lapic_millis(), pit_millis());
 
 		SetPointer(tempX, tempY);
 	}

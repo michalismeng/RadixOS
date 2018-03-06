@@ -20,7 +20,7 @@ OBJ_DEPS := $(patsubst %,$(TARGET_OBJS)/%,$(OBJ_DEPS))
 
 # rule to build the whole system
 all: $(OBJ_DEPS)
-	$(CC) -T linker.ld -nostdlib -lgcc $(OBJ_DEPS) -o radixOS.bin -O2
+	$(CC) -T linker.ld -nostdlib -lgcc $(OBJ_DEPS) -o radixOS.bin -O0 -fno-stack-protector
 
 # rule to run the system
 run: all
@@ -39,11 +39,11 @@ ap_boot: ap_boot.fasm
 
 # rule to compile c source file
 $(TARGET_OBJS)/%.o: %.c
-	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES) #-fno-asynchronous-unwind-tables
+	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O0 -Wall -Wextra $(INCLUDES) -fno-stack-protector
 
 # rule to compile c source file of the kernel library
 $(TARGET_OBJS)/%.o: libk/%.c
-	$(CC) -c $< -o $(patsubst libk/%,%,$@) -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES)
+	$(CC) -c $< -o $(patsubst libk/%,%,$@) -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES) -fno-stack-protector
 
 # rule to compile assembly file
 $(TARGET_OBJS)/%.o: %.s

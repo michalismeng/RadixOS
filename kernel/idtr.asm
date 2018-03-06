@@ -134,9 +134,6 @@ APIC_IRQ 15, 79
 extern isr_handler
 extern irq_handler
 
-extern printfln
-msg: db "error %h %h %h %h", 0
-
 ; ISR common stub calls the C function isr_handler to route a cpu exception
 isr_common_stub:
 				; already pushed error_code, interrupt no
@@ -149,7 +146,7 @@ isr_common_stub:
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	mov gs, ax
+	;mov gs, ax			TODO: Consider saving gs and restoring it after the interrupt
 
 	call isr_handler
 	
@@ -158,21 +155,15 @@ isr_common_stub:
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	mov gs, ax
+	;mov gs, ax
 
 	popad
 	add esp, 8
 
 	iret        ; pop CS, EIP, EFLAGS, SS, and ESP
 
-bad:
-	push eax
-	push msg
-	call printfln
-	hlt
 
-
-; IRQ common stub calls the C function irq_handler to router a hardware interrupt
+; IRQ common stub calls the C function irq_handler to route a hardware interrupt
 irq_common_stub:
 	pushad
 
@@ -183,33 +174,15 @@ irq_common_stub:
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	mov gs, ax
-	
-	; mov eax, esp
-	; push dword [eax]
-	; push dword [eax + 4]
-	; push dword [eax + 8]
-	; push dword [eax + 12]
-	; push msg
-	; call printfln
-	; add esp, 20
+	;mov gs, ax
 
 	call irq_handler
-
-	; mov eax, esp
-	; push dword [eax]
-	; push dword [eax + 4]
-	; push dword [eax + 8]
-	; push dword [eax + 12]
-	; push msg
-	; call printfln
-	; add esp, 20
 
 	pop eax
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	mov gs, ax
+	;mov gs, ax
 
 	popad
 	add esp, 8

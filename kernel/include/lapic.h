@@ -2,32 +2,7 @@
 #define LAPIC_H_15022018
 
 #include <types.h>
-
-// APIC_APICID	= 20h
-// APIC_APICVER	= 30h
-// APIC_TASKPRIOR	= 80h
-// APIC_EOI	= 0B0h
-// APIC_LDR	= 0D0h
-// APIC_DFR	= 0E0h
-// APIC_SPURIOUS	= 0F0h
-// APIC_ESR	= 280h
-// APIC_ICRL	= 300h
-// APIC_ICRH	= 310h
-// APIC_LVT_TMR	= 320h
-// APIC_LVT_PERF	= 340h
-// APIC_LVT_LINT0	= 350h
-// APIC_LVT_LINT1	= 360h
-// APIC_LVT_ERR	= 370h
-// APIC_TMRINITCNT	= 380h
-// APIC_TMRCURRCNT	= 390h
-// APIC_TMRDIV	= 3E0h
-// APIC_LAST	= 38Fh
-// APIC_DISABLE	= 10000h
-// APIC_SW_ENABLE	= 100h
-// APIC_CPUFOCUS	= 200h
-// APIC_NMI	= (4<<8)
-// TMR_PERIODIC	= 20000h
-// TMR_BASEDIV	= (1<<20)
+#include <stddef.h>
 
 enum LAPIC_REGS 
 {
@@ -71,15 +46,25 @@ enum LAPIC_ICR_DESTINATION_TYPE
     LAPIC_DESTINATION_ALL_BUT_SELF = 3
 };
 
+// enables the lapic so that it can process/send interrupts
 void lapic_enable(physical_addr base_addr);
 
+// returns the id of the lapic 
 uint32_t lapic_get_id(physical_addr base_addr);
 
+// sends the End of Interrupt command to the lapic
 void lapic_send_eoi(physical_addr base_addr);
 
 // send inter-processor interrupt
 void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t destination_type);
 
-void lapic_start_timer(physical_addr base_addr);
+// calibrates the lapic timer so that it generates an interrupt every given period (calibration uses the PIT - target_period in ms)
+void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint8_t irq_vector);
+
+// returns the number of milliseconds passed since the last calibration
+volatile uint32_t lapic_millis();
+
+// spin-sleep for 'time' millis using the lapic timer 
+void lapic_sleep(uint32_t time);
 
 #endif

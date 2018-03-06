@@ -1,6 +1,7 @@
 #include <idt.h>
 #include <utility.h>
 #include <gst.h>
+#include <per_cpu_data.h>
 #include <lapic.h>
 
 idt_entry_t idt_entries[256];
@@ -176,13 +177,13 @@ void isr_handler(registers_t regs)
 }
 
 volatile int pit_count = 0;
-volatile int lapic_count = 0;
 
 void irq_handler(registers_t regs)
 {
 	if(regs.int_no == 224)
 		pit_count++;
 	else if(regs.int_no == 64)
-		lapic_count++;
+		per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);
+		
 	lapic_send_eoi(get_gst()->lapic_base);
 }

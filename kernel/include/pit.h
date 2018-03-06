@@ -28,6 +28,9 @@ void pit_timer_init(uint32_t _frequency, int one_time);
 // returns the current count register value of the pit
 volatile uint32_t pit_read_count();
 
+// returns the number of milliseconds passed since the last init of the PIT
+volatile uint32_t pit_millis();
+
 // spins 'time' milliseconds have passed, based on the PIT count variable
 void pit_sleep(uint32_t time);
 
