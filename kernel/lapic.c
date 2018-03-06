@@ -1,5 +1,6 @@
 #include <lapic.h>
 #include <system.h>
+#include <pit.h>
 
 void lapic_enable(physical_addr base_addr)
 {
@@ -45,4 +46,29 @@ void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_v
 	low |= (destination_type << 18) & LAPIC_ICR_DESTINATION_TYPE;
 
     reg_writel(base_addr, LAPIC_ICR_LOW, low);
+}
+
+void lapic_start_timer(physical_addr base_addr)
+{
+    reg_writel(base_addr, LAPIC_TIMER_DIV, 0x3);                            // set the divider register to 16
+
+    // prepare pit for one shot mode (10ms period)
+	pit_timer_init(100, 1);    
+
+    reg_writel(base_addr, LAPIC_TIMER_INIT, 0xFFFFFFFF);                    // set counter and implicitly one-shot mode
+
+    while(pit_read_count() > 0);                                            // sleep for 10ms
+
+    reg_writel(base_addr, LAPIC_TIMER_LVT, LAPIC_TIMER_DISABLE);
+
+    uint32_t ticks_in_10_ms = 0xFFFFFFFF - reg_readl(base_addr, LAPIC_TIMER_CUR);
+    printfln("found %u ticks in 10ms", ticks_in_10_ms);
+
+    // restore pit to its previous function
+    pit_timer_init(1000, 0);
+
+    // start APIC timer in periodic mode
+    reg_writel(base_addr, LAPIC_TIMER_DIV, 0x3);
+    reg_writel(base_addr, LAPIC_TIMER_LVT, 64 | LAPIC_TIMER_PERIODIC);
+    reg_writel(base_addr, LAPIC_TIMER_INIT, ticks_in_10_ms);
 }

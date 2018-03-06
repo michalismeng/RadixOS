@@ -169,6 +169,15 @@ int rsdp_first_parse(rsdp_descriptor_t* rsdp)
             if(madt_first_parse(header) != 0)
                 return 1;
         }
+        else if(memcmp(header->signature, ACPI_HPET, 4) == 0)
+        {
+            printfln("found hpet");
+            hpet_descriptor_t* hpet = (hpet_descriptor_t*)header;
+
+            printfln("hpet: %h %u", (uint32_t)hpet->address, hpet->comparator_count);
+        }
+        else
+            printfln("%s", header->signature);
         // do first parse for other tables: FADT, SLIT...
 	}
 

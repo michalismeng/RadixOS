@@ -19,8 +19,14 @@
 #define COUNTER_1				1 << 6
 #define COUNTER_2				2 << 6
 
-// initializes the PIT at the given frequency
-void pit_timer_init(uint32_t _frequency);
+#define CHANNEL_0               0x40
+#define COMMAND                 0x43
+
+// initializes the PIT at the given frequency and mode (one time or periodic)
+void pit_timer_init(uint32_t _frequency, int one_time);
+
+// returns the current count register value of the pit
+volatile uint32_t pit_read_count();
 
 // spins 'time' milliseconds have passed, based on the PIT count variable
 void pit_sleep(uint32_t time);

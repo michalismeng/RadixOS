@@ -67,7 +67,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	idt_init();
 	idtr_install();
 
-	// disable the PIC so we can use the local apic
+	// disable the PIC so we can use the io apic
 	pic_disable();
 
 	// --------------------------- physical memory manager ---------------------------
@@ -173,9 +173,9 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	// boot each processor (except for the current one which is already running ...)
 
-	pit_timer_init(1000);
+	pit_timer_init(1000, 0);
 	lapic_enable(get_gst()->lapic_base);
-	ioapic_map_irq(get_gst()->ioapic_base, 0, gst_get_int_override(0), 64);
+	ioapic_map_irq(get_gst()->ioapic_base, 0, gst_get_int_override(0), 224);
 
 	asm("sti");
 	ClearScreen();
@@ -210,12 +210,15 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	// end of boot for each processor
 
+	lapic_start_timer(get_gst()->lapic_base);
+
+	extern volatile uint32_t lapic_count;
 	
 	while(1)
 	{
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 2);
-		printfln("time: %u", millis());
+		printfln("time: %u", lapic_count * 10);
 
 		SetPointer(tempX, tempY);
 	}

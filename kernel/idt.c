@@ -176,10 +176,13 @@ void isr_handler(registers_t regs)
 }
 
 volatile int pit_count = 0;
+volatile int lapic_count = 0;
 
 void irq_handler(registers_t regs)
 {
-	if(regs.int_no == 64)
+	if(regs.int_no == 224)
 		pit_count++;
+	else if(regs.int_no == 64)
+		lapic_count++;
 	lapic_send_eoi(get_gst()->lapic_base);
 }

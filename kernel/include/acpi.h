@@ -9,6 +9,8 @@
 #define ACPI_SRAT	"SRAT"		// System ressource affinity			(NUMA)
 #define ACPI_SLIT	"SLIT"		// System locality information table	(NUMA)
 
+#define ACPI_HPET 	"HPET"		// High Performace Event Timer
+
 enum MADT_TYPE
 {
 	LAPIC = 0,
@@ -97,6 +99,29 @@ typedef struct madt_interrupt_override_descriptor_struct_t
 	uint32_t global_system_int;
 	uint16_t flags;
 } madt_interrupt_override_descriptor_t;
+
+typedef struct hpet_descriptor_struct_t
+{
+	acpi_dt_header_t acpi_header;
+
+	uint8_t hardware_rev_id;
+    uint8_t comparator_count:5;
+    uint8_t counter_size:1;
+    uint8_t reserved:1;
+    uint8_t legacy_replacement:1;
+    uint16_t pci_vendor_id;
+
+    uint8_t address_space_id;    // 0 - system memory, 1 - system I/O
+    uint8_t register_bit_width;
+    uint8_t register_bit_offset;
+    uint8_t reserved1;
+    uint64_t address;
+
+    uint8_t hpet_number;
+    uint16_t minimum_tick;
+    uint8_t page_protection;
+
+} hpet_descriptor_t;
 
 // searches the possible locations of RAM for a valid RDSP struct
 rsdp_descriptor_t* rsdp_find();
