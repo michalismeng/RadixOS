@@ -31,17 +31,8 @@ typedef struct idt_ptr_struct_t
 
 #pragma pack(pop)
 
-typedef struct registers_struct_t
-{
-    uint32_t ds;
-    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
-    uint32_t int_no, err_code;
-    uint32_t eip, cs, eflags, useresp, ss;
-
-} registers_t;
-
 void idt_init();
 void idt_set_gate(uint8_t num, uint32_t base, uint16_t selector, uint8_t flags);
-void idtr_install();
+void idtr_install(idt_ptr_t* idtr);
 
 #endif

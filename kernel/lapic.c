@@ -3,6 +3,7 @@
 #include <pit.h>
 #include <per_cpu_data.h>
 #include <debug.h>
+#include <isr.h>
 
 void lapic_enable(physical_addr base_addr)
 {
@@ -16,7 +17,7 @@ void lapic_enable(physical_addr base_addr)
         // setup the spurious interrupt vector register
         reg_writel(base_addr, 0xF0, val);
     }   
-}
+} 
 
 uint32_t lapic_get_id(physical_addr base_addr)
 {
@@ -54,6 +55,12 @@ void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_v
     reg_writel(base_addr, LAPIC_ICR_LOW, low);
 }
 
+int32_t lapic_timer_callback(iregisters_t* regs)
+{
+    // increment the cpu-local lapic counter
+    per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);
+}
+
 void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint8_t irq_vector)
 {
     // save the requested period
@@ -75,8 +82,7 @@ void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint
     printfln("found %u ticks in 1 ms", ticks_in_1_ms);
     printfln("found %u ticks in %u ms", ticks_in_1_ms * target_period, target_period);
 
-    // the PIT is not useful anymore
-    // pit_timer_init(1000, 0);
+    isr_register(irq_vector, lapic_timer_callback);
 
     // start APIC timer in periodic mode
     reg_writel(base_addr, LAPIC_TIMER_DIV, 0x3);

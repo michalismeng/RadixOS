@@ -2,8 +2,7 @@
 #include <system.h>
 
 uint32_t pit_frequency;
-extern volatile uint32_t pit_count;
-
+volatile int pit_count = 0;
 
 void pit_timer_init(uint32_t _frequency, int one_time)
 {

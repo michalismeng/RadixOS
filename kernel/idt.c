@@ -2,10 +2,9 @@
 #include <utility.h>
 #include <gst.h>
 #include <per_cpu_data.h>
-#include <lapic.h>
+#include <isr.h>
 
 idt_entry_t idt_entries[256];
-idt_ptr_t idtr;
 
 extern void _flushIDT(void* idtr);
 
@@ -162,28 +161,10 @@ void idt_set_gate(uint8_t num, uint32_t base, uint16_t selector, uint8_t flags)
 	idt_entries[num].flags = flags | (1 << 7);          // OR flags with the present bit
 }
 
-void idtr_install()
+void idtr_install(idt_ptr_t* idtr)
 {
-	idtr.base = (uint32_t)idt_entries;
-	idtr.limit = 256 * sizeof(idt_entry_t) - 1;
+	idtr->base = (uint32_t)idt_entries;
+	idtr->limit = 256 * sizeof(idt_entry_t) - 1;
 
-	_flushIDT(&idtr);
-}
-
-void isr_handler(registers_t regs)
-{
-	printfln("isr %u", regs.int_no);
-	//lapic_send_eoi(lapic_base);
-}
-
-volatile int pit_count = 0;
-
-void irq_handler(registers_t regs)
-{
-	if(regs.int_no == 224)
-		pit_count++;
-	else if(regs.int_no == 64)
-		per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);
-		
-	lapic_send_eoi(get_gst()->lapic_base);
+	_flushIDT(idtr);
 }

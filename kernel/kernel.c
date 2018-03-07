@@ -12,6 +12,7 @@
 #include <pit.h>
 #include <gst.h>
 #include <per_cpu_data.h>
+#include <isr.h>
 
 #include <ap_boot.h>
 
@@ -69,9 +70,11 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	// intstall the dummy gdt
 	gdtr_install(GDT_BASE_DUMMY, 3, &get_gst()->gdtr);
 
-	// initialize the idt
+	// initialize the idt and isr manager
 	idt_init();
-	idtr_install();
+	isr_init();
+	
+	idtr_install(&get_gst()->idtr);
 
 	// disable the PIC so we can use the io apic
 	pic_disable();
@@ -180,7 +183,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	// --------------------------- end: setup GDTs---------------------------
 
 	// --------------------------- boot all processors ---------------------------
-
+	
 	// boot each processor (except for the current one which is already running ...)
 
 	// prepare the PIT - not very useful now
@@ -193,9 +196,10 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 	per_cpu_write(PER_CPU_OFFSET(lapic_count), 0);
 
+
 	asm("sti");
 	ClearScreen();
-	// this is a hardcoded memory location required to assemble 'ap_boot.fasm'
+	// this is a hardcoded memory location required by the assembled 'ap_boot.fasm'
 	memcpy(0x8000, ap_boot_bin, ap_boot_bin_len);
 	*(uint32_t*)0x8002 = setup_processor;
 	*(gdt_ptr_t*)0x8006 = get_gst()->gdtr;
