@@ -2,9 +2,9 @@
 # ignore development specific files
 
 *.code-workspace
-kernel/*.bin
 
 scripts/
-objs/
 .vscode/
-kernel/radixOS.bin
+*.o
+*.bin
+*.a
