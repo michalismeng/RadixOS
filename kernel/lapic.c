@@ -5,9 +5,15 @@
 #include <debug.h>
 #include <isr.h>
 
+// void lapic_error_callback(iregisters_t* regs)
+// {
+//     printfln("lapic error occured");
+//     PANIC("");
+// }
+
 void lapic_enable(physical_addr base_addr)
 {
-    volatile uint32_t val = reg_readl(base_addr, 0xF0);
+    volatile uint32_t val = reg_readl(base_addr, LAPIC_SPURIOUS_INTERRUPT);
 
     // enable the lapic only if not already enabled
     // printfln("processor 1 starts lapic");
@@ -16,7 +22,8 @@ void lapic_enable(physical_addr base_addr)
         val |= (1 << 8);
 
         // setup the spurious interrupt vector register
-        reg_writel(base_addr, 0xF0, val | 0x100);
+        reg_writel(base_addr, LAPIC_SPURIOUS_INTERRUPT, val | 0x100);
+        // reg_writel(base_addr, LAPIC_ERROR_LVT, 65 | LAPIC_DELIVERY_FIXED);
     }   
 } 
 
@@ -31,7 +38,17 @@ void lapic_send_eoi(physical_addr base_addr)
     reg_writel(base_addr, LAPIC_EOI, 1);
 }
 
-void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t destination_type)
+void lapic_send_ipi_std(physical_addr base_addr, uint8_t target_id, uint8_t target_vector)
+{
+    lapic_send_ipi(base_addr, target_id, target_vector, LAPIC_DELIVERY_FIXED, LAPIC_DESTINATION_PHYSICAL, LAPIC_DESTINATION_TARGET);
+}
+
+void lapic_send_ipi_to_others(physical_addr base_addr, uint8_t target_id, uint8_t target_vector)
+{
+    lapic_send_ipi(base_addr, target_id, target_vector, LAPIC_DELIVERY_FIXED, LAPIC_DESTINATION_ALL_BUT_SELF, LAPIC_DESTINATION_TARGET);
+}
+
+void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t destination_shorthand)
 {
     // wait until there are no pending IPIs
     while(reg_readl(base_addr, LAPIC_ICR_LOW) & LAPIC_ICR_PENDING);
@@ -51,7 +68,7 @@ void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_v
     else
         low |= (1 << 14);
 
-	low |= (destination_type << 18) & LAPIC_ICR_DESTINATION_TYPE;
+	low |= destination_shorthand;
 
     reg_writel(base_addr, LAPIC_ICR_LOW, low);
 }
@@ -86,9 +103,9 @@ void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint
     isr_register(irq_vector, lapic_timer_callback);
 
     // start APIC timer in periodic mode
-    reg_writel(base_addr, LAPIC_TIMER_DIV, 0x3);
-    reg_writel(base_addr, LAPIC_TIMER_LVT, irq_vector | LAPIC_TIMER_PERIODIC);
-    reg_writel(base_addr, LAPIC_TIMER_INIT, ticks_in_1_ms * target_period);       // get the ticks in 'target_period' ms
+    reg_writel(base_addr, LAPIC_TIMER_DIV, 0x3);                                    // set the divider register to 16
+    reg_writel(base_addr, LAPIC_TIMER_LVT, irq_vector | LAPIC_TIMER_PERIODIC);      // set the timer local vector to the given one 
+    reg_writel(base_addr, LAPIC_TIMER_INIT, ticks_in_1_ms * target_period);         // set the ticks in 'target_period' ms
 }
 
 volatile uint32_t lapic_millis()

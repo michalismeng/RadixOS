@@ -5,7 +5,7 @@
 #include <screen.h>
 #include <spinlock.h>
 
-extern int lock;  // lock, used to test spinlock functions when printing
+extern uint32_t lock;  // lock, used to test spinlock functions when printing
 
 // private functions and data
 
@@ -19,7 +19,7 @@ void processor_startup(uint32_t lapic_id, physical_addr exec_base)
 	// implement intel protocol for processor boot 
 	
 	// send the INIT interrupt and wait for 100ms
-	lapic_send_ipi(get_gst()->lapic_base, lapic_id, 0, LAPIC_DELIVERY_INIT, 0, 0);
+	lapic_send_ipi(get_gst()->lapic_base, lapic_id, 0, LAPIC_DELIVERY_INIT, LAPIC_DESTINATION_PHYSICAL, LAPIC_DESTINATION_TARGET);
 	lapic_sleep(100);
 
 	// send the STARTUP interrupt and wait for 1ms

@@ -16,7 +16,7 @@
 #include <processor_startup.h>
 #include <spinlock.h>
 
-int lock = 0;
+uint32_t lock = 0;
 
 int test_and_set(int new_val, int* lock);
 
