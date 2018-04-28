@@ -36,7 +36,7 @@ void outportl(uint16_t port, uint32_t value)
    asm volatile ("outl %%eax,%%dx": :"d" (port), "a" (value));
 }
 
-uint32_t reg_readl(uint32_t base, uint16_t off)
+volatile uint32_t reg_readl(uint32_t base, uint16_t off)
 {
     uint32_t volatile* addr = base + off;
     return *addr;

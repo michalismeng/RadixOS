@@ -84,7 +84,7 @@ _start:
 	stack since (pushed 0 bytes so far) and the alignment is thus
 	preserved and the call is well defined.
 	*/
-	//mov $0x90000, %esp		a known stack for debug purposes
+	mov $0x90000, %esp		//a known stack for debug purposes
 	push %ebx
 	call kernel_main
 

@@ -5,12 +5,13 @@
 #include <screen.h>
 #include <spinlock.h>
 
-extern int lock;  // lock used to test spinlock functions
-
+extern int lock;  // lock, used to test spinlock functions when printing
 
 // private functions and data
 
 volatile int ready = 0;
+
+uint32_t get_stack();
 
 // startup the processor connected to 'lapic_id' and set it to execute at address 'exec_base'
 void processor_startup(uint32_t lapic_id, physical_addr exec_base)
@@ -32,45 +33,38 @@ void processor_startup(uint32_t lapic_id, physical_addr exec_base)
 // GS register should be set to the processor's local data area, prior to calling this function
 void setup_processor()
 {
-	// test AP local data
-	// printfln("test data unmodified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));	
-	// per_cpu_write(PER_CPU_OFFSET(test_data), 400);
-	// printfln("test data modified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
-    printfln("processor %u is awake", per_cpu_read(PER_CPU_OFFSET(id)));
+	uint32_t id = per_cpu_read(PER_CPU_OFFSET(id));
+    printfln("processor %u is awake %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
 
-	// idtr_install(&get_gst()->idtr);
-	// printfln("idt installed: %h", get_gst()->idtr.base);
-	// pic_disable(); already disabled
+	idtr_install(&get_gst()->idtr);
 
 	// give the mark to the BSP to continue waking up processors
-	ready = 1;
-
+	
     // void final_processor_setup();
-    
-	// lapic_enable(get_gst()->lapic_base);
-	// calibrate the lapic timer of the BSP
-	// lapic_calibrate_timer(get_gst()->lapic_base, 10, 63);
-	per_cpu_write(PER_CPU_OFFSET(lapic_count), 0);
-	asm("sti");
+	lapic_enable(get_gst()->lapic_base);
+	// calibrate the lapic timer of the AP
+	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
-	int i = 0;
+	uint16_t height = SCREEN_HEIGHT - 2 * (id + 1); 
+	printfln("height: %u", height);
+
+	ready = 1;
+	asm("sti");
 
 	while(1)
 	{
 		acquire_lock(&lock);
 
-		i++;
 		int tempX = cursorX, tempY = cursorY;
-		SetPointer(0, SCREEN_HEIGHT - 4);
+		SetPointer(0, height);
 
-		// printfln("time: %u %u", lapic_millis(), pit_millis());
-		printf("time: %u %u", i % 1000, pit_millis());
+		printf("time: %u %u", lapic_millis(), per_cpu_read(PER_CPU_OFFSET(id)));
 
 		SetPointer(tempX, tempY);
 
 		release_lock(&lock);
 
-		for(int i = 0; i < 15000; i++);
+		for(int i = 0; i < 10000 + id * 1000; i++);
 	}
 }
 
@@ -98,6 +92,7 @@ void startup_all_AP()
 
 		ready = 0;
 		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		            // mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
+		*(uint32_t*)0x800E = 0x150000 - 4096 * i;						// reserve 4KB stack for each processor. TODO: Memory base MUST change
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
 
 		// wait for the processor to gracefully boot 

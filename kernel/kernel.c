@@ -163,7 +163,6 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	// calibrate the lapic timer of the BSP
 	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
-	per_cpu_write(PER_CPU_OFFSET(lapic_count), 0);
 
 	INT_ON;
 	
@@ -186,7 +185,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 2);
 
-		printf("time: %u %u", lapic_millis(), pit_millis());
+		printf("time: %u %u", lapic_millis(), per_cpu_read(PER_CPU_OFFSET(lapic_period)));
 
 		SetPointer(tempX, tempY);
 

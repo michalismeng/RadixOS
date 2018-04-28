@@ -10,12 +10,13 @@ void lapic_enable(physical_addr base_addr)
     volatile uint32_t val = reg_readl(base_addr, 0xF0);
 
     // enable the lapic only if not already enabled
-    if(val & (1 << 8) == 0)
+    // printfln("processor 1 starts lapic");
+    if(( val & (1 << 8) ) == 0)
     {
         val |= (1 << 8);
 
         // setup the spurious interrupt vector register
-        reg_writel(base_addr, 0xF0, val);
+        reg_writel(base_addr, 0xF0, val | 0x100);
     }   
 } 
 
@@ -55,7 +56,7 @@ void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_v
     reg_writel(base_addr, LAPIC_ICR_LOW, low);
 }
 
-int32_t lapic_timer_callback(iregisters_t* regs)
+void lapic_timer_callback(iregisters_t* regs)
 {
     // increment the cpu-local lapic counter
     per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);

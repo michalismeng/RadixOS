@@ -5,6 +5,11 @@ global _set_cpu_gs
 global _per_cpu_read
 global _per_cpu_write 
 
+global get_stack
+get_stack:
+    mov eax, esp
+    ret
+
 ; sets the gs for the executing cpu to a GDT segment
 ; expects GDT entry offset in stack
 _set_cpu_gs:

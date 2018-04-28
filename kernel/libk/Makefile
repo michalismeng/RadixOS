@@ -19,7 +19,7 @@ build: $(OBJ_DEPS)
 
 # rule to compile c source file
 $(OBJ_DEST)/%.o: %.c
-	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O0 -Wall -Wextra $(INCLUDES)
+	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O0 -Wall -Wextra $(INCLUDES) -fno-stack-protector
 	
 clean:
 	rm -rf objs/*

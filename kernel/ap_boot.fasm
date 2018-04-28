@@ -17,6 +17,7 @@ c_setup_proc:   dd 0						; c code function that conties the setup
 gdtr:           dw 0						; common gdt
                 dd 0		
 gs_entry:       dw 0                        ; entry in the gdt that gs should point to
+stack:          dd 0                        ; processor boot stack
 
 start:
     cli
@@ -27,7 +28,7 @@ start:
 	mov     gs, ax
 				
 	mov     ss, ax						; setup a dummy stack 
-	mov     sp, 0x7C00		
+	; mov     sp, 0x7C00		
 
     lgdt [gdtr]
 
@@ -46,12 +47,13 @@ bits 32
         mov fs, ax
         mov ss, ax
 
+        mov esp, dword[stack]
+
         mov ax, word [gs_entry]
         mov cx, 8
         mul cx
         mov gs, ax                      ; fix gs to point to our core-specific data
 
     	jmp dword [c_setup_proc]
-
     cli
     hlt

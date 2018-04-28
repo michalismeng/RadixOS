@@ -12,14 +12,14 @@ acquire_lock:
         jnz .lock_wait              ; the lock is used by someone else (ZF == 0 <=> [lock] == 1)
 
     .lock_acquire:
-        lock bts dword[eax], 0      ; set the first bit of the lock (old value is moved to CF)
-        jc .lock_wait               ; if CF is set then the lock was previously held by someone else => more waiting
+        lock bts dword[eax], 0      ; try set the first bit of the lock (old value is moved to CF)
+        jc .lock_wait               ; if CF is set then someone else took the lock => more waiting
 
     ret
 
 ; void release_lock(int* lock) : *lock must be 4-byte aligned to ensure atomic read/write
 release_lock:
     mov eax, dword [esp + 4]
-    mov dword [eax], 0
+    btr dword [eax], 0
 
     ret

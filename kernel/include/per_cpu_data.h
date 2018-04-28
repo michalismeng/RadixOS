@@ -3,10 +3,6 @@
 
 #include <types.h>
 
-// assembly to read and write based on the gs segment register
-extern uint32_t _per_cpu_read(uint32_t var_offset);
-extern void _per_cpu_write(uint32_t var_offset, uint32_t value);
-
 extern void _set_cpu_gs(uint32_t gdt_offset);
 
 // return the offset of a field in the cpu data sturcture
@@ -20,6 +16,8 @@ typedef volatile struct per_cpu_data_struct_t
     uint32_t test_data;         // random test data to check if gs segment addressing works
     uint32_t lapic_period;      // period of the lapic timer
     uint32_t lapic_count;       // count of the lapic timer
+
+    uint32_t pad[32];
 
     // TODO: add scheduler queues and other cpu local stuff...
 
