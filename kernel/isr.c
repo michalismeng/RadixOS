@@ -11,6 +11,8 @@ void isr_init()
 	memset(isr_handlers, 0, ISR_HANDLERS * sizeof(isr_t));
 }
 
+
+
 void isr_handler(iregisters_t regs)
 {
 	if (isr_handlers[regs.int_no] != 0)

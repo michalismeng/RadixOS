@@ -21,6 +21,8 @@ all: ap_boot $(OBJ_DEPS)
 	cd libk && make
 	$(CC) -T linker.ld -nostdlib -lgcc $(OBJ_DEPS) -o radixOS.bin -O0 -fno-stack-protector -Llibk -l:libk.a
 
+	echo BUILD SUCESS
+
 # rule to run the system
 run: all
 	grub-file --is-x86-multiboot radixOS.bin

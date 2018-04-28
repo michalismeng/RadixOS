@@ -14,6 +14,11 @@
 #include <per_cpu_data.h>
 #include <isr.h>
 #include <processor_startup.h>
+#include <spinlock.h>
+
+int lock = 0;
+
+int test_and_set(int new_val, int* lock);
 
 void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 {
@@ -152,30 +157,41 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 
 	// prepare the PIT - not very useful now
 	//pit_timer_init(1000, 0);
-	lapic_enable(get_gst()->lapic_base);
 	//ioapic_map_irq(get_gst()->ioapic_base, 0, gst_get_int_override(0), 224);
 
+	lapic_enable(get_gst()->lapic_base);
 	// calibrate the lapic timer of the BSP
 	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 	per_cpu_write(PER_CPU_OFFSET(lapic_count), 0);
 
-
-	asm("sti");
+	INT_ON;
+	
+	lock = 1;
 	ClearScreen();
 
+	printfln("processor 0 is awake");
 	startup_all_AP();
+
 	printfln("******** all processors booted ********");
 
+	printfln("test lock address: %h", &lock);
+	lock = 0;
 	// --------------------------- end: boot all processors ---------------------------
-	
+
 	while(1)
 	{
+		acquire_lock(&lock);
+
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 2);
 
-		printfln("time: %u %u", lapic_millis(), pit_millis());
+		printf("time: %u %u", lapic_millis(), pit_millis());
 
 		SetPointer(tempX, tempY);
+
+		release_lock(&lock);
+
+		for(int i = 0; i < 10000; i++);		// do some random sleep to allow the other processor to acquire the lock
 	}
 }

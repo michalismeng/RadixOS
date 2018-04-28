@@ -1,7 +1,12 @@
-#include "processor_startup.h"
-#include "gst.h"
-#include "lapic.h"
-#include "ap_boot.h"
+#include <processor_startup.h>
+#include <gst.h>
+#include <lapic.h>
+#include <ap_boot.h>
+#include <screen.h>
+#include <spinlock.h>
+
+extern int lock;  // lock used to test spinlock functions
+
 
 // private functions and data
 
@@ -33,13 +38,40 @@ void setup_processor()
 	// printfln("test data modified: %u", per_cpu_read(PER_CPU_OFFSET(test_data)));
     printfln("processor %u is awake", per_cpu_read(PER_CPU_OFFSET(id)));
 
+	// idtr_install(&get_gst()->idtr);
+	// printfln("idt installed: %h", get_gst()->idtr.base);
+	// pic_disable(); already disabled
+
 	// give the mark to the BSP to continue waking up processors
 	ready = 1;
 
     // void final_processor_setup();
     
+	// lapic_enable(get_gst()->lapic_base);
+	// calibrate the lapic timer of the BSP
+	// lapic_calibrate_timer(get_gst()->lapic_base, 10, 63);
+	per_cpu_write(PER_CPU_OFFSET(lapic_count), 0);
+	asm("sti");
 
-	while(1);
+	int i = 0;
+
+	while(1)
+	{
+		acquire_lock(&lock);
+
+		i++;
+		int tempX = cursorX, tempY = cursorY;
+		SetPointer(0, SCREEN_HEIGHT - 4);
+
+		// printfln("time: %u %u", lapic_millis(), pit_millis());
+		printf("time: %u %u", i % 1000, pit_millis());
+
+		SetPointer(tempX, tempY);
+
+		release_lock(&lock);
+
+		for(int i = 0; i < 15000; i++);
+	}
 }
 
 // this function sets up higher level services like virtual memory, ipc... for the processor
