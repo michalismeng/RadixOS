@@ -43,9 +43,9 @@ void lapic_send_ipi_std(physical_addr base_addr, uint8_t target_id, uint8_t targ
     lapic_send_ipi(base_addr, target_id, target_vector, LAPIC_DELIVERY_FIXED, LAPIC_DESTINATION_PHYSICAL, LAPIC_DESTINATION_TARGET);
 }
 
-void lapic_send_ipi_to_others(physical_addr base_addr, uint8_t target_id, uint8_t target_vector)
+void lapic_send_ipi_to_others(physical_addr base_addr, uint8_t target_vector)
 {
-    lapic_send_ipi(base_addr, target_id, target_vector, LAPIC_DELIVERY_FIXED, LAPIC_DESTINATION_ALL_BUT_SELF, LAPIC_DESTINATION_TARGET);
+    lapic_send_ipi(base_addr, 0, target_vector, LAPIC_DELIVERY_FIXED, LAPIC_DESTINATION_ALL_BUT_SELF, LAPIC_DESTINATION_TARGET);
 }
 
 void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t destination_shorthand)
@@ -92,7 +92,7 @@ void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint
 
     reg_writel(base_addr, LAPIC_TIMER_INIT, 0xFFFFFFFF);                    // set counter and implicitly one-shot mode
 
-    while(pit_read_count() > 0);                                            // sleep for 10ms
+    while(pit_read_count() > 0);                                            // sleep for 1ms
 
     reg_writel(base_addr, LAPIC_TIMER_LVT, LAPIC_TIMER_DISABLE);
 

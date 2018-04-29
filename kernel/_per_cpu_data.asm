@@ -20,14 +20,18 @@ _set_cpu_gs:
 ; reads a cpu local variable at a given offset
 ; expects variable byte offset in stack
 _per_cpu_read:
-	mov ebx, [esp + 4]
-	mov eax, [gs:ebx]
+	mov eax, [esp + 4]
+	mov eax, [gs:eax]
 	ret
 
 ; writes a cpu local variable at a given offset
 ; expects variable byte offset and the value to write in stack
 _per_cpu_write:
-    mov ebx, [esp + 4]
-    mov eax, [esp + 8]
+    push ebx                    ; save ebx as we will trash it
+
+    mov ebx, [esp + 4 + 4]      ; since we pushed ebx, we need to show 4 bytes upper in the stack
+    mov eax, [esp + 8 + 4]
     mov [gs:ebx], eax
+
+    pop ebx                     ; restore ebx
     ret

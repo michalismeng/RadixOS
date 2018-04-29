@@ -107,7 +107,7 @@ void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_v
 void lapic_send_ipi_std(physical_addr base_addr, uint8_t target_id, uint8_t target_vector);
 
 // send standard IPI to all but current core
-void lapic_send_ipi_to_others(physical_addr base_addr, uint8_t target_id, uint8_t target_vector);
+void lapic_send_ipi_to_others(physical_addr base_addr, uint8_t target_vector);
 
 // calibrates the lapic timer so that it generates an interrupt every given period (calibration uses the PIT - target_period in ms)
 void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint8_t irq_vector);
