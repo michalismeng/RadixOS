@@ -58,7 +58,7 @@ void setup_processor()
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, height);
 
-		printf("time: %u %u", per_cpu_read(PER_CPU_OFFSET(id)), per_cpu_read(PER_CPU_OFFSET(id)));
+		printf("time: %u %u", lapic_millis(), per_cpu_read(PER_CPU_OFFSET(id)));
 
 		SetPointer(tempX, tempY);
 
