@@ -98,7 +98,6 @@ void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint
 
     uint32_t ticks_in_1_ms = 0xFFFFFFFF - reg_readl(base_addr, LAPIC_TIMER_CUR);
     printfln("found %u ticks in 1 ms", ticks_in_1_ms);
-    printfln("found %u ticks in %u ms", ticks_in_1_ms * target_period, target_period);
 
     isr_register(irq_vector, lapic_timer_callback);
 

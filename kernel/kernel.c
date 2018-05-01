@@ -15,10 +15,9 @@
 #include <isr.h>
 #include <processor_startup.h>
 #include <spinlock.h>
+#include <kernel_definitions.h>
 
 uint32_t lock = 0;
-
-int test_and_set(int new_val, int* lock);
 
 void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 {
@@ -42,7 +41,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	// initialize the idt and isr manager
 	idt_init();
 	isr_init();
-	
+
 	idtr_install(&get_gst()->idtr);
 
 	// disable the PIC so we can use the io apic
@@ -67,11 +66,11 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 		if(entry->type == 1)		// this is available memory
 		{
 			// MMB is placed at 0x100000, so fix memory to not interfere
-			if(entry->addr == 0x100000)
-			{
-				entry->addr += 0x1000;
-				entry->len -= 0x1000;
-			}
+			// if(entry->addr == 0x100000)
+			// {
+			// 	entry->addr += 0x1000;
+			// 	entry->len -= 0x1000;
+			// }
 			if( (error = phys_mem_insert_region((physical_addr)entry->addr, (uint32_t)entry->len - (uint32_t)entry->len % 4096)) != 0)
 			{
 				printfln("error: %u", error);
@@ -82,12 +81,27 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 		entry = (uint32_t)entry + entry->size + sizeof(entry->size);
 	}
 
+	// reserve space for kernel and mmb
+
+	printfln("kernel memory: %h %h %u", &kernel_start, &kernel_end, &kernel_end - &kernel_start);
+	printfln("kernel resied in %u memory index", phys_mem_get_mmb_index_for(KERNEL_START));
+
+	// for this approach to work, both the kernel and the mmb should be the first memory in their memory blocks
+	// get the index where the mmb is loaded (mmb is by default loaded at 0x100000)
+	uint16_t mmb_index = phys_mem_get_mmb_index_for(0x100000);
+	phys_mem_alloc_in_region(mmb_index);						// reserve one block (4096) for the mmb
+
+	uint16_t kernel_index = phys_mem_get_mmb_index_for(KERNEL_START);
+	for(int i = 0; i < ceil_division(&kernel_end - KERNEL_START, 4096); i++)
+		phys_mem_alloc_in_region(kernel_index);
+
 	phys_mem_print();
 
 	// --------------------------- end: physical memory manager ---------------------------
 
-	// allocated memory for the acpi resources
-	heap_t* kheap = heap_create(0x150000, 4096);
+	// allocate memory for the acpi resources
+	physical_addr x = phys_mem_alloc_in_region(kernel_index);
+	heap_t* kheap = heap_create(x, 4096);
 
 	// --------------------------- parse acpi tables !!! ---------------------------
 	rsdp_descriptor_t* rsdp = rsdp_find();
@@ -159,9 +173,9 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	//pit_timer_init(1000, 0);
 	//ioapic_map_irq(get_gst()->ioapic_base, 0, gst_get_int_override(0), 224);
 
+	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
 	lapic_enable(get_gst()->lapic_base);
 	// calibrate the lapic timer of the BSP
-	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
 	INT_ON;
@@ -173,8 +187,6 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 	startup_all_AP();
 
 	printfln("******** all processors booted ********");
-
-	printfln("test lock address: %h", &lock);
 	lock = 0;
 	// --------------------------- end: boot all processors ---------------------------
 

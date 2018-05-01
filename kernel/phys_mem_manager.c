@@ -145,18 +145,32 @@ void phys_mem_print_region(mmb_entry_t* head)
 
 	while (temp->next != MEM_NO_NEXT)
 	{
-		printfln("free block: %h size %u", temp->next, temp->next_size);
+		printfln("free block: %h to %h size %u", temp->next, temp->next + temp->next_size - 1, temp->next_size);
 		temp = (int)temp->next + temp->next_size - sizeof(mem_region_t);
 	}
-
-	printfln("-----------------");
 }
 
 void phys_mem_print()
 {
+	printfln("-------------------------");
     for(int i = 0; i < mmb_count; i++)
     {
         mmb_entry_t* head = (mmb_entry_t*)mmb + i;
+		printfln("memory block at: %h to %h size %h", head->mem_region_start, head->mem_region_start + head->mem_region_length - 1, head->mem_region_length);
         phys_mem_print_region(head);
+		printfln("-----------------");
     }
+}
+
+uint16_t phys_mem_get_mmb_index_for(physical_addr address)
+{
+	for(uint16_t i = 0; i < mmb_count - 1; i++)
+	{
+		mmb_entry_t* e = (mmb_entry_t*)mmb + i;
+
+		if(address >= e->mem_region_start && address < (e + 1)->mem_region_start)
+			return i;
+	}
+
+	return mmb_count - 1;
 }

@@ -4,6 +4,8 @@
 #include <ap_boot.h>
 #include <screen.h>
 #include <spinlock.h>
+#include <phys_mem_manager.h>
+#include <kernel_definitions.h>
 
 extern uint32_t lock;  // lock, used to test spinlock functions when printing
 
@@ -29,25 +31,21 @@ void processor_startup(uint32_t lapic_id, physical_addr exec_base)
     // at this line processor has started spinning
 }
 
-// this function is called from the assembled 'ap_boot.fasm' after the starting the processor
+// this function is called from the assembled 'ap_boot.fasm' after starting the processor
 // GS register should be set to the processor's local data area, prior to calling this function
 void setup_processor()
 {
 	uint32_t id = per_cpu_read(PER_CPU_OFFSET(id));
-    printfln("processor %u is awake %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
+    printfln("processor %u is awake at stack %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
 
 	idtr_install(&get_gst()->idtr);
 
-	// give the mark to the BSP to continue waking up processors
-	
     // void final_processor_setup();
 	lapic_enable(get_gst()->lapic_base);
 	// calibrate the lapic timer of the AP
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
-	uint16_t height = SCREEN_HEIGHT - 2 * (id + 1); 
-	printfln("height: %u", height);
-
+	// give the mark to the BSP to continue waking up processors
 	ready = 1;
 	asm("sti");
 
@@ -56,7 +54,7 @@ void setup_processor()
 		acquire_lock(&lock);
 
 		int tempX = cursorX, tempY = cursorY;
-		SetPointer(0, height);
+		SetPointer(0, SCREEN_HEIGHT - 2 * (id + 1));
 
 		printf("time: %u %u", lapic_millis(), per_cpu_read(PER_CPU_OFFSET(id)));
 
@@ -84,6 +82,9 @@ void startup_all_AP()
 	*(uint32_t*)0x8002 = setup_processor;               // target 'c' function address to be called by the assembler
 	*(gdt_ptr_t*)0x8006 = get_gst()->gdtr;              // global descriptor table register address (processors share a common descriptor with different entries)
 
+
+	// currently the stack for each processor is allocated using the physical memory manager 
+	uint16_t kernel_index = phys_mem_get_mmb_index_for(KERNEL_START);
     // startup all but the first (BSP) processors
     for(uint32_t i = 1; i < get_gst()->processor_count; i++)
 	{
@@ -92,7 +93,7 @@ void startup_all_AP()
 
 		ready = 0;
 		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		            // mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
-		*(uint32_t*)0x800E = 0x150000 - 4096 * i;						// reserve 4KB stack for each processor. TODO: Memory base MUST change
+		*(uint32_t*)0x800E = phys_mem_alloc_in_region(kernel_index);	// reserve 4KB stack for each processor. TODO: Memory base MUST change
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
 
 		// wait for the processor to gracefully boot 

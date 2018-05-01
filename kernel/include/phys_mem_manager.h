@@ -40,6 +40,9 @@ int phys_mem_dealloc_from_region(uint16_t index, physical_addr blk);
 // deallocate a block of 4 KB and return it to its proper region
 int phys_mem_dealloc(physical_addr blk);
 
+// returns the memory entry index for the given physical address
+uint16_t phys_mem_get_mmb_index_for(physical_addr address);
+
 void phys_mem_print_region(mmb_entry_t* head);
 void phys_mem_print();
 

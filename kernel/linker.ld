@@ -5,6 +5,8 @@ SECTIONS
 	. = 1M;
 	. += 4096;		/* Give a block space for the master physical memory manager block */
 
+	kernel_start = .;
+
 	.text BLOCK(4K) : ALIGN(4K)
 	{
 		*(.multiboot)
@@ -26,4 +28,6 @@ SECTIONS
 		*(COMMON)
 		*(.bss)
 	}
+
+	kernel_end = .;
 }
