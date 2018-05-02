@@ -8,8 +8,12 @@
 /* kernel begin and end addresses as exported by the linker script */
 extern uint8_t kernel_start;
 extern uint8_t kernel_end;
+extern uint8_t __kernel_physical_start;
+extern uint8_t __kernel_init_start;
 
 #define KERNEL_START &kernel_start
 #define KERNEL_END &kernel_end
+#define KERNEL_PHYSICAL_START &__kernel_physical_start
+#define PAGE_SIZE 4096
 
 #endif

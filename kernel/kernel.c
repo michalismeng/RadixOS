@@ -18,14 +18,18 @@
 #include <kernel_definitions.h>
 
 uint32_t lock = 0;
+char stack[16 * 1024];
 
-void kernel_main(multiboot_info_t* mbd, unsigned int magic)
+void __kernel_main(multiboot_info_t* mbd, unsigned int magic)
 {
+	asm("hlt");
+	asm("mov %0, %%esp"::"r"(stack + 16 * 1024):);
 	SetForegroundColor(VGA_COLOR_GREEN);
 	SetBackgroundColor(VGA_COLOR_BLACK);
 	ClearScreen();
 
 	Print("Hello this is RadixOS \n");
+	PANIC("WE SHOULD NOT ENTER HERE");
 
 	// initialize the global system table
 	memset(get_gst(), 0, sizeof(gst_t));

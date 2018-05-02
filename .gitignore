@@ -5,6 +5,7 @@
 
 scripts/
 .vscode/
+docs/
 *.o
 *.bin
 *.a

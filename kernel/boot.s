@@ -45,6 +45,7 @@ doesn't make sense to return from this function as the bootloader is gone.
 .global _start
 .type _start, @function
 _start:
+	cli
 	/*
 	The bootloader has loaded us into 32-bit protected mode on a x86
 	machine. Interrupts are disabled. Paging is disabled. The processor
@@ -84,7 +85,7 @@ _start:
 	stack since (pushed 0 bytes so far) and the alignment is thus
 	preserved and the call is well defined.
 	*/
-	mov $0x90000, %esp		//a known stack for debug purposes
+	//mov $0x90000, %esp		//a known stack for debug purposes
 	push %ebx
 	call kernel_main
 
