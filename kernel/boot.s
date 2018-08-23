@@ -87,7 +87,7 @@ _start:
 	*/
 	//mov $0x90000, %esp		//a known stack for debug purposes
 	push %ebx
-	call kernel_main
+	call initializer_main
 
 	/*
 	If the system has nothing more to do, put the computer into an

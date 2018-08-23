@@ -9,7 +9,10 @@
 extern uint8_t kernel_start;
 extern uint8_t kernel_end;
 extern uint8_t __kernel_physical_start;
+
+// kernel initializer segment start and end addresses
 extern uint8_t __kernel_init_start;
+extern uint8_t __kernel_init_end;
 
 #define KERNEL_START &kernel_start
 #define KERNEL_END &kernel_end

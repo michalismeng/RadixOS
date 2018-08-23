@@ -5,6 +5,7 @@ SECTIONS
 	. = 1M;
 	. += 4096;		/* Give a block space for the master physical memory manager block */
 
+	/* Physical start address of the kernel initializer */
 	__kernel_init_start = .;
 
 	.kernel_init BLOCK(4K) : ALIGN(4K)
@@ -27,7 +28,10 @@ SECTIONS
 
 	. = 0xC0000000;
 
+	/* Physical start address of the kernel */
 	__kernel_physical_start = ADDR(.kernel_init) + SIZEOF(.kernel_init) + 4K - SIZEOF(.kernel_init) % 4K;
+
+	/* Virtual start address of the kernel */
 	kernel_start = .;
 
 	.text BLOCK(4K) : AT( __kernel_physical_start)
@@ -51,5 +55,6 @@ SECTIONS
 		*(.bss)
 	}
 
+	/* Virtual end address of the kernel */
 	kernel_end = .;
 }
