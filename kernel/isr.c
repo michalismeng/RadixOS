@@ -24,8 +24,10 @@ void isr_handler(iregisters_t regs)
 		isr_t handler = isr_handlers[regs.int_no];
 		handler(&regs);
 	}
-	else
+	else {
 		printfln("Unhandled exception %u", regs.int_no);
+		PANIC("");
+	}
 }
 
 void irq_handler(iregisters_t regs)

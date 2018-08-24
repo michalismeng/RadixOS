@@ -3,7 +3,6 @@ ENTRY(_start)
 SECTIONS
 {
 	. = 1M;
-	. += 4096;		/* Give a block space for the master physical memory manager block */
 
 	/* Physical start address of the kernel initializer */
 	__kernel_init_start = .;

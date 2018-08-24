@@ -102,8 +102,8 @@ void initializer_main(multiboot_info_t* mbd, unsigned int magic)
         // map the pages
     }
 
-    // identity map the first MB to be able to print to the screen after enabling paging
-    for(uint32_t index = 0; index < 256; index++)
+    // identity map the first 3 MB to be able to print to the screen and setup the memory manager after enabling paging
+    for(uint32_t index = 0; index < 512 + 256; index++)
     {
         physical_addr pa = index * PAGE_SIZE;
         virtual_addr  va = pa;

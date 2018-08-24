@@ -18,7 +18,7 @@
 #include <kernel_definitions.h>
 
 uint32_t lock = 0;
-char stack[16 * 1024];
+// char stack[16 * 1024];
 
 void kernel_entry(multiboot_info_t* mbd)
 {
@@ -50,8 +50,7 @@ void kernel_entry(multiboot_info_t* mbd)
 	pic_disable();
 
 	// --------------------------- physical memory manager ---------------------------
-	if(phys_mem_manager_init(0x100000) != 0)
-		PANIC("Could not initialize physical memory manager");
+	phys_mem_init((mbd->mem_lower + mbd->mem_upper), 0x200000);
 
 	if((mbd->flags & 1) == 0)
 		PANIC("Cannot get memory length");
@@ -63,21 +62,17 @@ void kernel_entry(multiboot_info_t* mbd)
 	multiboot_memory_map_t* entry = (multiboot_memory_map_t*)(mbd->mmap_addr);
 	int error = 0;
 
-	PANIC("");
+	printfln("blocks used: %u", phys_mem_get_block_use_count());
 
+	// iterate through the multiboot memory map and setup the available memory regions
 	for(; (uint32_t)entry < mbd->mmap_addr + mbd->mmap_length;)
 	{
 		if(entry->type == 1)		// this is available memory
 		{
-			// MMB is placed at 0x100000, so fix memory to not interfere
-			// if(entry->addr == 0x100000)
-			// {
-			// 	entry->addr += 0x1000;
-			// 	entry->len -= 0x1000;
-			// }
-			if( (error = phys_mem_insert_region((physical_addr)entry->addr, (uint32_t)entry->len - (uint32_t)entry->len % 4096)) != 0)
+			printf("entry addr at: %h", entry->addr);
+			printfln(" length: %h", entry->len);
+			if(phys_mem_free_region((physical_addr)entry->addr, (uint32_t)entry->len - (uint32_t)entry->len % 4096) != ERROR_OK)
 			{
-				printfln("error: %u", error);
 				PANIC("Could not insert region into mmb");
 			}
 		}
@@ -85,28 +80,19 @@ void kernel_entry(multiboot_info_t* mbd)
 		entry = (uint32_t)entry + entry->size + sizeof(entry->size);
 	}
 
-	PANIC("");
-
-	// reserve space for kernel and mmb
-
-	printfln("kernel memory: %h %h %u", &kernel_start, &kernel_end, &kernel_end - &kernel_start);
-	printfln("kernel resied in %u memory index", phys_mem_get_mmb_index_for(KERNEL_START));
-
-	// for this approach to work, both the kernel and the mmb should be the first memory in their memory blocks
-	// get the index where the mmb is loaded (mmb is by default loaded at 0x100000)
-	uint16_t mmb_index = phys_mem_get_mmb_index_for(0x100000);
-	phys_mem_alloc_in_region(mmb_index);						// reserve one block (4096) for the mmb
-
-	uint16_t kernel_index = phys_mem_get_mmb_index_for(KERNEL_START);
-	for(int i = 0; i < ceil_division(&kernel_end - KERNEL_START, 4096); i++)
-		phys_mem_alloc_in_region(kernel_index);
-
-	phys_mem_print();
+	// reserve space for kernel
+	uint32_t kernel_length = &kernel_end - &kernel_start;
+	if(phys_mem_reserve_region(&kernel_start - 0xC0000000 + 0x100000, kernel_length + 4096 - kernel_length % 4096) != ERROR_OK)
+		PANIC("Could not reserve physical memory for the kernel");
+	
+	// reserve space for the memory manager
+	if(phys_mem_reserve_region(0x200000, phys_mem_get_bitmap_size() + 4096 - phys_mem_get_bitmap_size() % 4096) != ERROR_OK)
+		PANIC("Could not reserve physical memory for the memory manager");
 
 	// --------------------------- end: physical memory manager ---------------------------
 
 	// allocate memory for the acpi resources
-	physical_addr x = phys_mem_alloc_in_region(kernel_index);
+	physical_addr x = phys_mem_alloc_above_1mb();
 	heap_t* kheap = heap_create(x, 4096);
 
 	// --------------------------- parse acpi tables !!! ---------------------------

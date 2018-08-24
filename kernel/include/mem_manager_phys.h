@@ -3,47 +3,24 @@
 
 #include <types.h>
 
-typedef struct mem_region_struct_t
-{
-	void* next;					    // the address of the next block of available memory
-	physical_addr next_size;		// the size of the next available block of memory (if this block has been deallocated => size = 4096)
+// initialize the physical memory manager. (size in KB)
+void phys_mem_init(uint32_t size, physical_addr base);
 
-} mem_region_t;
+// reserve a region
+error_t phys_mem_reserve_region(uint32_t base, uint32_t length);
 
-typedef struct mmb_entry_struct_t
-{
-	void* next;
-	uint32_t next_size;
+// free a region
+error_t phys_mem_free_region(uint32_t base, uint32_t length);
 
-	void* mem_region_start;			// the memory region start address
-	uint32_t mem_region_length;		// the memory region length				(after beign set these two members stay constant)
-
-	// TODO: Perhaps add region descriptions and enable the user to select a region in which to be allocated
-
-} mmb_entry_t;
-
-// initialize the master memory block address and count
-int phys_mem_manager_init(physical_addr mmb_base);
-
-// insert a memory region in the master memory block
-int phys_mem_insert_region(physical_addr start, uint32_t length);
-
-// allocate a block of 4 KB in the selected region
-physical_addr phys_mem_alloc_in_region(uint16_t index);
-
-// allocate a block of 4 KB in the first available region
+// allocate a block of 4 KB
 physical_addr phys_mem_alloc();
 
-// deallocate a block of 4 KB and return it to the selected region (the block address must lie in the selected region, no such check is made)
-int phys_mem_dealloc_from_region(uint16_t index, physical_addr blk);
+// allocate a block of 4 KB above the 1 MB mark
+physical_addr phys_mem_alloc_above_1mb();
 
-// deallocate a block of 4 KB and return it to its proper region
+// deallocate a block of 4 KB
 int phys_mem_dealloc(physical_addr blk);
 
-// returns the memory entry index for the given physical address
-uint16_t phys_mem_get_mmb_index_for(physical_addr address);
-
-void phys_mem_print_region(mmb_entry_t* head);
-void phys_mem_print();
+uint32_t phys_mem_get_bitmap_size();
 
 #endif

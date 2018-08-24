@@ -13,6 +13,12 @@ typedef void   VOID;
 typedef uint32_t virtual_addr;
 typedef uint32_t physical_addr;
 
+enum error_t
+{
+	ERROR_OK = 1,
+	ERROR_OCCUR = 0
+};
+
 #define CHK_BIT(x, bit) ( ( (x) & (bit) ) == (bit) )
 
 #define KB *1024

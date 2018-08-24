@@ -7,14 +7,6 @@
 #include <vmmngr_pte.h>
 #include <vmmngr_pde.h>
 
-enum error_t
-{
-	VMEM_NONE,
-	VMEM_BAD_ARGUMENT,
-	ERROR_OK = 1,
-	ERROR_OCCUR = 0
-};
-
 #define PAGES_PER_TABLE 1024	// intel arch definitions
 #define TABLES_PER_DIR	1024
 #define PAGE_SIZE 4096

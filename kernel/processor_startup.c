@@ -84,7 +84,8 @@ void startup_all_AP()
 
 
 	// currently the stack for each processor is allocated using the physical memory manager 
-	uint16_t kernel_index = phys_mem_get_mmb_index_for(KERNEL_START);
+	// TODO: Fix this
+	// uint16_t kernel_index = phys_mem_get_mmb_index_for(KERNEL_START);
     // startup all but the first (BSP) processors
     for(uint32_t i = 1; i < get_gst()->processor_count; i++)
 	{
@@ -93,7 +94,9 @@ void startup_all_AP()
 
 		ready = 0;
 		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		            // mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
-		*(uint32_t*)0x800E = phys_mem_alloc_in_region(kernel_index);	// reserve 4KB stack for each processor. TODO: Memory base MUST change
+
+		// TODO: Fix this
+		// *(uint32_t*)0x800E = phys_mem_alloc_in_region(kernel_index);	// reserve 4KB stack for each processor. TODO: Memory base MUST change
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
 
 		// wait for the processor to gracefully boot 
