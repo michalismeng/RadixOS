@@ -8,6 +8,7 @@ isr_t isr_handlers[ISR_HANDLERS];
 
 void isr_init()
 {
+	printfln("isr handlers: %h", isr_handlers);
 	memset(isr_handlers, 0, ISR_HANDLERS * sizeof(isr_t));
 }
 

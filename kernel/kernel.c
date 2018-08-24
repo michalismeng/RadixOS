@@ -4,7 +4,7 @@
 #include <acpi.h>
 #include <pic.h>
 #include <multiboot.h>
-#include <phys_mem_manager.h>
+#include <mem_manager_phys.h>
 #include <idt.h>
 #include <ioapic.h>
 #include <lapic.h>
@@ -20,7 +20,7 @@
 uint32_t lock = 0;
 char stack[16 * 1024];
 
-void kernel_entry(multiboot_info_t* mbd, unsigned int magic)
+void kernel_entry(multiboot_info_t* mbd)
 {
 	SetForegroundColor(VGA_COLOR_GREEN);
 	SetBackgroundColor(VGA_COLOR_BLACK);
@@ -62,6 +62,8 @@ void kernel_entry(multiboot_info_t* mbd, unsigned int magic)
 
 	multiboot_memory_map_t* entry = (multiboot_memory_map_t*)(mbd->mmap_addr);
 	int error = 0;
+
+	PANIC("");
 
 	for(; (uint32_t)entry < mbd->mmap_addr + mbd->mmap_length;)
 	{

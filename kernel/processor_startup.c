@@ -4,7 +4,7 @@
 #include <ap_boot.h>
 #include <screen.h>
 #include <spinlock.h>
-#include <phys_mem_manager.h>
+#include <mem_manager_phys.h>
 #include <kernel_definitions.h>
 
 extern uint32_t lock;  // lock, used to test spinlock functions when printing
