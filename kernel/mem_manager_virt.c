@@ -2,20 +2,16 @@
 #include <mem_manager_phys.h>
 #include <debug.h>
 #include <utility.h>
-// #include "thread_sched.h"
-// #include "spinlock.h"
-// #include "print_utility.h"
-// #include "file.h"
-// #include "error.h"
 
 // private data
 
+// These fields should be processor specific
 pdirectory*	current_directory = 0;		// current page directory
 physical_addr current_pdbr = 0;			// current page directory base register
 
 pdirectory* kernel_directory = 0;		// kernel page directory
+// ----------------------------------------------------------------------------------
 
-#pragma region HELPER FUNCTION
 // when fault occured the page was present in memory
 int page_fault_error_is_page_present(uint32_t error)
 {
@@ -34,36 +30,7 @@ int page_fault_error_is_user(uint32_t error)
 	return (error & 0x4);
 }
 
-#pragma endregion
-
-// top half page fault handler
-// void page_fault(iregisters_t* regs)
-// {
-// 	uint32_t addr;
-// 	_asm
-// 	{
-// 		mov eax, cr2
-// 		mov dword ptr addr, eax
-// 	}
-
-// 	// push thread in the exception queue
-// 	if (thread_get_current())
-// 	{
-// 		thread_exception te;
-// 		te.exception_number = 14;
-// 		te.target_thread = thread_get_current();
-// 		te.data[0] = addr;
-// 		te.data[1] = regs->err_code;
-
-		
-// 		if (!queue_spsc_insert(&thread_get_current()->exceptions, te))
-// 			WARNING("queue_lf insertion error");
-// 	}
-// 	else
-// 		PANIC("Page fault occured but threading is not enabled!");
-
-// }
-
+#pragma region comment
 // uint32_t page_fault_calculate_present_flags(uint32_t area_flags)
 // {
 // 	uint32_t flags = I86_PDE_PRESENT;
@@ -210,15 +177,16 @@ int page_fault_error_is_user(uint32_t error)
 // 		}
 // 	}
 // }
+#pragma endregion
 
 // creates a page table for the dir address space
-error_t vmmngr_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags)
+error_t virt_mem_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags)
 {
-	pd_entry* entry = vmmngr_pdirectory_lookup_entry(dir, addr);
+	pd_entry* entry = virt_mem_pdirectory_lookup_entry(dir, addr);
 	if (!entry)
 		return ERROR_OCCUR;
 
-	ptable* table = (ptable*)phys_mem_alloc();
+	ptable* table = (ptable*)phys_mem_alloc_above(0x120000);		// TODO: Investigate why memory above 1mb (alloced at 0x10A000) does not work
 	if (!table)
 		return ERROR_OCCUR;		// not enough memory!!
 
@@ -229,33 +197,9 @@ error_t vmmngr_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags)
 	return ERROR_OK;
 }
 
-error_t vmmngr_map_page(pdirectory* dir, physical_addr phys, virtual_addr virt, uint32_t flags)
-{
-	// our goal is to get the pt_entry indicated by virt and set its frame to phys.
+// public functions
 
-	pd_entry* e = vmmngr_pdirectory_lookup_entry(dir, virt);
-
-	if (!pd_entry_is_present(e))								// table is not present
-		if (vmmngr_create_table(dir, virt, flags) != ERROR_OK)
-			return ERROR_OCCUR;
-		
-	// here we have a guaranteed working table (perhaps empty)
-
-	ptable* table = pd_entry_get_frame(*e);
-	pt_entry* page = vmmngr_ptable_lookup_entry(table, virt);	// we have the page
-	if (page == 0)
-		return ERROR_OCCUR;
-	
-	*page = 0;												// remove previous flags
-	*page |= flags;											// and set the new ones
-	pt_entry_set_frame(page, phys);
-
-	vmmngr_flush_TLB_entry(virt);							// TODO: inform the other cores of the mapping change
-
-	return ERROR_OK;
-}
-
-error_t vmmngr_initialize(uint32_t kernel_pages)
+error_t virt_mem_init(uint32_t kernel_pages)
 {
 	pdirectory* pdir = (pdirectory*)phys_mem_alloc();
 	if (pdir == 0)
@@ -268,17 +212,17 @@ error_t vmmngr_initialize(uint32_t kernel_pages)
 								// so identity map the first 4MB to be sure we can point to them
 
 	for (uint32_t i = 0; i < 1024; i++, phys += 4096)
-		if (vmmngr_map_page(pdir, phys, phys, DEFAULT_FLAGS) != ERROR_OK)
+		if (virt_mem_map_page(pdir, phys, phys, VIRT_MEM_DEFAULT_FLAGS) != ERROR_OK)
 			return ERROR_OCCUR;
 
 	phys = 0x100000;
 	virtual_addr virt = 0xC0000000;
 
 	for (uint32_t i = 0; i < kernel_pages; i++, virt += 4096, phys += 4096)
-		if (vmmngr_map_page(pdir, phys, virt, DEFAULT_FLAGS) != ERROR_OK)
+		if (virt_mem_map_page(pdir, phys, virt, VIRT_MEM_DEFAULT_FLAGS) != ERROR_OK)
 			return ERROR_OCCUR;
 
-	if (vmmngr_switch_directory(pdir, (physical_addr)&pdir->entries) != ERROR_OK)
+	if (virt_mem_switch_directory(pdir, (physical_addr)&pdir->entries) != ERROR_OK)
 		return ERROR_OCCUR;
 
 	// register_interrupt_handler(14, page_fault);
@@ -287,52 +231,82 @@ error_t vmmngr_initialize(uint32_t kernel_pages)
 	return ERROR_OK;
 }
 
-error_t vmmngr_alloc_page(virtual_addr base)
+error_t virt_mem_map_page(pdirectory* dir, physical_addr phys, virtual_addr virt, uint32_t flags)
 {
-	return vmmngr_alloc_page_f(base, DEFAULT_FLAGS);
+	// our goal is to get the pt_entry indicated by virt and set its frame to phys.
+
+	pd_entry* e = virt_mem_pdirectory_lookup_entry(dir, virt);
+
+	if (!pd_entry_is_present(e))								// table is not present
+		if (virt_mem_create_table(dir, virt, flags) != ERROR_OK)
+			return ERROR_OCCUR;
+
+	// here we have a guaranteed working table (perhaps empty)
+
+	ptable* table = pd_entry_get_frame(*e);
+	pt_entry* page = virt_mem_ptable_lookup_entry(table, virt);	// we have the page
+	if (page == 0)
+		return ERROR_OCCUR;
+	
+	*page = 0;												// remove previous flags
+	*page |= flags;											// and set the new ones
+	pt_entry_set_frame(page, phys);
+
+	// TODO: This must happen here only when dir is the current page directory
+	//virt_mem_flush_TLB_entry(virt);							// TODO: inform the other cores of the mapping change
+
+	return ERROR_OK;
 }
 
-error_t vmmngr_alloc_page_f(virtual_addr base, uint32_t flags)
+error_t virt_mem_unmap_page(pdirectory* dir, virtual_addr virt)
 {
-	//TODO: cater for memory mapped IO where (in the most simple case) an identity map must be done.
-	//TODO: fix this function
-	physical_addr addr = base;
+	pd_entry* e = virt_mem_pdirectory_lookup_entry(dir, virt);
+	ptable* table = pd_entry_get_frame(*e);
+	pt_entry* page = virt_mem_ptable_lookup_entry(table, virt);
 
+	*page = 0;
+
+	return ERROR_OK;
+}
+
+error_t virt_mem_alloc_page(virtual_addr base)
+{
+	return virt_mem_alloc_page_f(base, VIRT_MEM_DEFAULT_FLAGS);
+}
+
+error_t virt_mem_alloc_page_f(virtual_addr base, uint32_t flags)
+{
 	// assume that 'base' is not already allocated
 
-	if (base < 0xF0000000)		// memory mapped IO above some location...
-	{
-		addr = (physical_addr)phys_mem_alloc();
-		if (addr == 0)
-			return ERROR_OCCUR;
-	}
-
-	if (!addr)
-	{
-		// set_last_error(EINVAL, VMEM_BAD_ARGUMENT, EO_VMMNGR);
+	physical_addr addr = (physical_addr)phys_mem_alloc();
+	if (addr == 0)
 		return ERROR_OCCUR;
-	}
 
-	if (vmmngr_map_page(vmmngr_get_directory(), addr, base, flags) != ERROR_OK)
+	if (virt_mem_map_page(virt_mem_get_directory(), addr, base, flags) != ERROR_OK)
 		return ERROR_OCCUR;
+
+	// TODO: TLB shootdown
 
 	return ERROR_OK;
 }
 
-error_t vmmngr_free_page(pt_entry* entry)
+error_t virt_mem_free_page(virtual_addr base)
 {
-	physical_addr addr = pt_entry_get_frame(*entry);
-	phys_mem_dealloc(addr);
+	physical_addr addr = virt_mem_get_phys_addr(base);
+	if(addr == 0)
+		return ERROR_OCCUR;
+	
+	if(virt_mem_unmap_page(virt_mem_get_directory(), base) != ERROR_OK)
+		return ERROR_OCCUR;
 
-	// TODO: make unmap function
+	phys_mem_dealloc(addr);		// TODO: Add error checking
 
-	pt_entry_del_attrib(entry, I86_PTE_PRESENT);
-	pt_entry_del_attrib(entry, I86_PTE_WRITABLE);
+	// TODO: TLB shootdown
 
 	return ERROR_OK;
 }
 
-error_t vmmngr_switch_directory(pdirectory* dir, physical_addr pdbr)
+error_t virt_mem_switch_directory(pdirectory* dir, physical_addr pdbr)
 {
 	// if the page directory hasn't change do not flush cr3 as such an action is a performance hit
 	// if (pmmngr_get_PDBR() == pdbr)
@@ -348,23 +322,17 @@ error_t vmmngr_switch_directory(pdirectory* dir, physical_addr pdbr)
 	return ERROR_OK;
 }
 
-pdirectory* vmmngr_get_directory()
+pdirectory* virt_mem_get_directory()
 {
 	return current_directory;
 }
 
-void vmmngr_flush_TLB_entry(virtual_addr addr)
+void virt_mem_flush_TLB_entry(virtual_addr addr)
 {
-	// TODO: How does this work on SMP ???
-// 	_asm
-// 	{
-// 		cli
-// 		invlpg addr					
-// 		sti
-// 	}
+	asm volatile("invlpg (%0)" ::"r" (addr) : "memory");
 }
 
-error_t vmmngr_ptable_clear(ptable* table)
+error_t virt_mem_ptable_clear(ptable* table)
 {
 	memset(table, 0, sizeof(ptable));
 	phys_mem_dealloc((physical_addr)table);
@@ -372,20 +340,20 @@ error_t vmmngr_ptable_clear(ptable* table)
 	return ERROR_OK;
 }
 
-pt_entry* vmmngr_ptable_lookup_entry(ptable* p, virtual_addr addr)
+pt_entry* virt_mem_ptable_lookup_entry(ptable* p, virtual_addr addr)
 {
 	if (p)
 		return &p->entries[PAGE_TABLE_INDEX(addr)];
 
-	// set_last_error(EINVAL, VMEM_BAD_ARGUMENT, EO_VMMNGR);
+	// set_last_error(EINVAL, VMEM_BAD_ARGUMENT, EO_virt_mem);
 	return 0;
 }
 
-error_t vmmngr_pdirectory_clear(pdirectory* pdir)
+error_t virt_mem_pdirectory_clear(pdirectory* pdir)
 {
 	for (int i = 0; i < TABLES_PER_DIR; i++)
 	{
-		if (vmmngr_ptable_clear((ptable*)pd_entry_get_frame(pdir->entries[i])) != ERROR_OK)
+		if (virt_mem_ptable_clear((ptable*)pd_entry_get_frame(pdir->entries[i])) != ERROR_OK)
 			return ERROR_OCCUR;
 	}
 
@@ -395,16 +363,16 @@ error_t vmmngr_pdirectory_clear(pdirectory* pdir)
 	return ERROR_OK;
 }
 
-pd_entry* vmmngr_pdirectory_lookup_entry(pdirectory* p, virtual_addr addr)
+pd_entry* virt_mem_pdirectory_lookup_entry(pdirectory* p, virtual_addr addr)
 {
 	if (p)
 		return &p->entries[PAGE_DIR_INDEX(addr)];
 
-	// set_last_error(EINVAL, VMEM_BAD_ARGUMENT, EO_VMMNGR);
+	// set_last_error(EINVAL, VMEM_BAD_ARGUMENT, EO_virt_mem);
 	return 0;
 }
 
-void vmmngr_print(pdirectory* dir)
+void virt_mem_print(pdirectory* dir)
 {
 	for (int i = 0; i < 1024; i++)
 	{
@@ -425,14 +393,15 @@ void vmmngr_print(pdirectory* dir)
 	}
 }
 
-physical_addr vmmngr_get_phys_addr(virtual_addr addr)
+// checked
+physical_addr virt_mem_get_phys_addr(virtual_addr addr)
 {
-	pd_entry* e = vmmngr_pdirectory_lookup_entry(vmmngr_get_directory(), addr);
+	pd_entry* e = virt_mem_pdirectory_lookup_entry(virt_mem_get_directory(), addr);
 	if (!e)
 		return 0;
 
 	ptable* table = pd_entry_get_frame(*e);
-	pt_entry* page = vmmngr_ptable_lookup_entry(table, addr);
+	pt_entry* page = virt_mem_ptable_lookup_entry(table, addr);
 	if (!page)
 		return 0;
 
@@ -442,18 +411,10 @@ physical_addr vmmngr_get_phys_addr(virtual_addr addr)
 	return p_addr;
 }
 
-void vmmngr_free_page_addr(virtual_addr addr)
+// checked
+int virt_mem_is_page_present(virtual_addr addr)
 {
-	pd_entry* e = vmmngr_pdirectory_lookup_entry(vmmngr_get_directory(), addr);
-	ptable* table = (ptable*)pd_entry_get_frame(*e);
-	pt_entry* page = vmmngr_ptable_lookup_entry(table, addr);
-
-	vmmngr_free_page(page);
-}
-
-int vmmngr_is_page_present(virtual_addr addr)
-{
-	pd_entry* e = vmmngr_pdirectory_lookup_entry(vmmngr_get_directory(), addr);
+	pd_entry* e = virt_mem_pdirectory_lookup_entry(virt_mem_get_directory(), addr);
 	if (e == 0 || !pd_entry_is_present(*e))
 		return 0;
 
@@ -461,24 +422,26 @@ int vmmngr_is_page_present(virtual_addr addr)
 	if (table == 0)
 		return 0;
 
-	pt_entry* page = vmmngr_ptable_lookup_entry(table, addr);
+	pt_entry* page = virt_mem_ptable_lookup_entry(table, addr);
 	if (page == 0 || !pt_entry_is_present(*page) == 0)
 		return 0;
 
 	return 1;
 }
 
-pdirectory* vmmngr_create_address_space()
+// checked
+physical_addr virt_mem_create_address_space()
 {
-	pdirectory* dir = (pdirectory*)phys_mem_alloc();
+	pdirectory* dir = (pdirectory*)phys_mem_alloc_above_1mb();
 	if (!dir)
 		return 0;
 
 	memset(dir, 0, sizeof(pdirectory));
-	return dir;
+	return (physical_addr)dir;
 }
 
-error_t vmmngr_map_kernel_space(pdirectory* pdir)
+// performs shallow copy
+error_t virt_mem_map_kernel_space(pdirectory* pdir)
 {
 	if (!pdir)
 		return ERROR_OCCUR;
@@ -487,12 +450,13 @@ error_t vmmngr_map_kernel_space(pdirectory* pdir)
 	return ERROR_OK;
 }
 
-error_t vmmngr_switch_to_kernel_directory()
+// not necessary
+error_t virt_mem_switch_to_kernel_directory()
 {
-	return vmmngr_switch_directory(kernel_directory, (physical_addr)kernel_directory);
+	return virt_mem_switch_directory(kernel_directory, (physical_addr)kernel_directory);
 }
 
-uint32_t vmmngr_get_page_size()
+uint32_t virt_mem_get_page_size()
 {
 	return PAGE_SIZE;
 }

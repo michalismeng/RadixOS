@@ -1,17 +1,20 @@
 #include <mem_manager_phys.h>
 #include <utility.h>
 #include <debug.h>
+#include <spinlock.h>
 
 // private data
 
 #define PHYS_MEM_BLOCKS_PER_BYTE	8		// this is used in our bitmap structure
-#define PHYS_MEM_BLOCK_SIZE		4096	// block size in bytes (use same as page size for convenience)
+#define PHYS_MEM_BLOCK_SIZE			4096	// block size in bytes (use same as page size for convenience)
 #define PHYS_MEM_BLOCK_ALIGN		PHYS_MEM_BLOCK_SIZE
 
 static uint32_t phys_mem_memory_size = 0;
 static uint32_t phys_mem_used_blocks = 0;
 static uint32_t phys_mem_max_blocks = 0;
 static uint32_t* phys_mem_bitmap = 0;
+
+static spinlock_t phys_mem_lock = 0;
 
 //PRIVATE - AUX FUNCTIONS
 
@@ -76,6 +79,8 @@ uint32_t mmap_first_free(uint32_t blk_index)
 
 void phys_mem_init(uint32_t size, physical_addr base)
 {
+	// No locks required here
+	
 	printfln("Initializing physical memory manager with: %u KB of memory", size);
 	phys_mem_memory_size = size;
 	phys_mem_bitmap = (uint32_t*)base;
@@ -94,6 +99,8 @@ error_t phys_mem_reserve_region(uint32_t base, uint32_t length)
 	uint32_t aligned_addr = base / PHYS_MEM_BLOCK_SIZE;
 	uint32_t aligned_size = length / PHYS_MEM_BLOCK_SIZE;
 
+	acquire_lock(&phys_mem_lock);
+
 	for (int i = 0; i < aligned_size; i++)
 	{
 		if(!mmap_test(aligned_addr))
@@ -102,6 +109,8 @@ error_t phys_mem_reserve_region(uint32_t base, uint32_t length)
 			phys_mem_used_blocks++;
 		}
 	}
+
+	release_lock(&phys_mem_lock);
 
 	return ERROR_OK;
 }
@@ -114,6 +123,8 @@ error_t phys_mem_free_region(uint32_t base, uint32_t length)
 	uint32_t aligned_addr = base / PHYS_MEM_BLOCK_SIZE;
 	uint32_t aligned_size = length / PHYS_MEM_BLOCK_SIZE;
 
+	acquire_lock(&phys_mem_lock);
+
 	for (int i = 0; i < aligned_size; i++)
 	{
 		if(mmap_test(aligned_addr))
@@ -123,57 +134,58 @@ error_t phys_mem_free_region(uint32_t base, uint32_t length)
 		}		
 	}
 
+	release_lock(&phys_mem_lock);
+
 	return ERROR_OK;
+}
+
+physical_addr phys_mem_alloc_above(physical_addr addr)
+{
+	if (phys_mem_get_free_blocks_count() <= 0)		// out of memory
+	{
+		// set_last_error(ENOMEM, PMEM_OUT_OF_MEM, EO_PMMNGR);
+		return 0;
+	}
+
+	uint32_t addr_aligned = addr / 4096 * 4096;
+
+	acquire_lock(&phys_mem_lock);
+
+	uint32_t frame = mmap_first_free(ceil_division(addr_aligned, (4096 * 32)));
+
+	if (frame == 0)		// out of memory
+		return 0;
+
+	mmap_set(frame);		// here we set directly without mmap_test as this is done in mmap_first_free
+
+	physical_addr ret_addr = frame * PHYS_MEM_BLOCK_SIZE;
+	phys_mem_used_blocks++;
+
+	release_lock(&phys_mem_lock);
+
+	return ret_addr;
 }
 
 physical_addr phys_mem_alloc()
 {
-	if (phys_mem_get_free_blocks_count() <= 0)		// out of memory
-	{
-		// set_last_error(ENOMEM, PMEM_OUT_OF_MEM, EO_PMMNGR);
-		return 0;
-	}
-
-	uint32_t frame = mmap_first_free(0);
-
-	if (frame == 0)		// out of memory
-		return 0;
-
-	mmap_set(frame);		// here we set directly without mmap_test as this is done in mmap_first_free
-
-	physical_addr addr = frame * PHYS_MEM_BLOCK_SIZE;
-	phys_mem_used_blocks++;
-
-	return addr;
+	return phys_mem_alloc_above(0);
 }
 
 physical_addr phys_mem_alloc_above_1mb()
 {
-	if (phys_mem_get_free_blocks_count() <= 0)		// out of memory
-	{
-		// set_last_error(ENOMEM, PMEM_OUT_OF_MEM, EO_PMMNGR);
-		return 0;
-	}
-
-	uint32_t frame = mmap_first_free(8);		// start of 1 MB
-
-	if (frame == 0)		// out of memory
-		return 0;
-
-	mmap_set(frame);		// here we set directly without mmap_test as this is done in mmap_first_free
-
-	physical_addr addr = frame * PHYS_MEM_BLOCK_SIZE;
-	phys_mem_used_blocks++;
-
-	return addr;
+	return phys_mem_alloc_above(0x100000);
 }
 
 int phys_mem_dealloc(physical_addr block)
 {
 	int frame = block / PHYS_MEM_BLOCK_SIZE;
 
+	acquire_lock(&phys_mem_lock);
+	
 	mmap_unset(frame);
 	phys_mem_used_blocks--;
+
+	release_lock(&phys_mem_lock);
 
 	return 0;
 }

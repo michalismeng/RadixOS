@@ -12,6 +12,9 @@ error_t phys_mem_reserve_region(uint32_t base, uint32_t length);
 // free a region
 error_t phys_mem_free_region(uint32_t base, uint32_t length);
 
+// allocates a block of 4 KB that lies above the given address
+physical_addr phys_mem_alloc_above(physical_addr addr);
+
 // allocate a block of 4 KB
 physical_addr phys_mem_alloc();
 

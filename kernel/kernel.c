@@ -5,6 +5,7 @@
 #include <pic.h>
 #include <multiboot.h>
 #include <mem_manager_phys.h>
+#include <mem_manager_virt.h>
 #include <idt.h>
 #include <ioapic.h>
 #include <lapic.h>
@@ -20,7 +21,7 @@
 uint32_t lock = 0;
 // char stack[16 * 1024];
 
-void kernel_entry(multiboot_info_t* mbd)
+void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 {
 	SetForegroundColor(VGA_COLOR_GREEN);
 	SetBackgroundColor(VGA_COLOR_BLACK);
@@ -62,15 +63,13 @@ void kernel_entry(multiboot_info_t* mbd)
 	multiboot_memory_map_t* entry = (multiboot_memory_map_t*)(mbd->mmap_addr);
 	int error = 0;
 
-	printfln("blocks used: %u", phys_mem_get_block_use_count());
+	printfln("total memory blocks: %u -> %u KB -> %u MB", phys_mem_get_block_count(), phys_mem_get_block_count() * 4, phys_mem_get_block_count() * 4 / 1024);
 
 	// iterate through the multiboot memory map and setup the available memory regions
 	for(; (uint32_t)entry < mbd->mmap_addr + mbd->mmap_length;)
 	{
 		if(entry->type == 1)		// this is available memory
 		{
-			printf("entry addr at: %h", entry->addr);
-			printfln(" length: %h", entry->len);
 			if(phys_mem_free_region((physical_addr)entry->addr, (uint32_t)entry->len - (uint32_t)entry->len % 4096) != ERROR_OK)
 			{
 				PANIC("Could not insert region into mmb");
@@ -89,7 +88,11 @@ void kernel_entry(multiboot_info_t* mbd)
 	if(phys_mem_reserve_region(0x200000, phys_mem_get_bitmap_size() + 4096 - phys_mem_get_bitmap_size() % 4096) != ERROR_OK)
 		PANIC("Could not reserve physical memory for the memory manager");
 
+	PANIC("Setup virtual memory");
+
 	// --------------------------- end: physical memory manager ---------------------------
+
+	// TODO: Properly setup virtual space
 
 	// allocate memory for the acpi resources
 	physical_addr x = phys_mem_alloc_above_1mb();
@@ -104,7 +107,7 @@ void kernel_entry(multiboot_info_t* mbd)
 	get_gst()->RSDP_base = rsdp;				// store the rsd pointer for future access
 
 	// perform the enumeration of acpi resources
-	if(rsdp_first_parse(rsdp) != 0)
+	if(rsdp_first_parse(rsdp) != 0)					// <<<---- This crashes due to paging
 		PANIC("error occured during first rsdp parsing!");
 
 	printfln("acpi resources: lapic: %h, rsdp: %h, processors: %u", get_gst()->lapic_base, get_gst()->RSDP_base, get_gst()->processor_count);

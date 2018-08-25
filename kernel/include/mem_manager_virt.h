@@ -11,7 +11,7 @@
 #define TABLES_PER_DIR	1024
 #define PAGE_SIZE 4096
 
-#define DEFAULT_FLAGS I86_PDE_PRESENT | I86_PDE_WRITABLE	// default flags for page tables and pages.
+#define VIRT_MEM_DEFAULT_FLAGS I86_PDE_PRESENT | I86_PDE_WRITABLE	// default flags for page tables and pages.
 
 // definitions for entry extraction based on virtual address. (see virtual address format)
 
@@ -20,6 +20,7 @@
 #define PAGE_GET_PHYSICAL_ADDR(x)	( (*x) & ~0xfff )			// Physical address is 4KB aligned, so return all bits except the 12 first
 
 void page_fault(iregisters_t* regs);
+
 // page table definition
 typedef struct page_table
 {
@@ -39,66 +40,66 @@ typedef struct page_directory
 
 // INTERFACE
 
-// maps the virtual address given to the physical address given
-error_t vmmngr_map_page(pdirectory* dir, physical_addr phys, virtual_addr virt, uint32_t flags);
-
 // initializes the virtual memory manager
-error_t vmmngr_initialize(uint32_t kernel_pages);
+error_t virt_mem_init(uint32_t kernel_pages);
+
+// maps the virtual address given to the physical address given
+error_t virt_mem_map_page(pdirectory* dir, physical_addr phys, virtual_addr virt, uint32_t flags);
+
+// unmaps the virtual address given from its associated physical address
+error_t virt_mem_unmap_page(pdirectory* dir, virtual_addr virt);
 
 // allocates a virtual page with the default flags
-error_t vmmngr_alloc_page(virtual_addr base);
+error_t virt_mem_alloc_page(virtual_addr base);
 
 // allocates a virtual page with flags
-error_t vmmngr_alloc_page_f(virtual_addr base, uint32_t flags);
+error_t virt_mem_alloc_page_f(virtual_addr base, uint32_t flags);
 
 // frees a virtual page
-error_t vmmngr_free_page(pt_entry* entry);
-
-// frees a virtual page using a virtual address
-void vmmngr_free_page_addr(virtual_addr addr);
+error_t virt_mem_free_page(virtual_addr base);
 
 // switch page directory
-error_t vmmngr_switch_directory(pdirectory* dir, physical_addr pdbr);
+error_t virt_mem_switch_directory(pdirectory* dir, physical_addr pdbr);
 
 // get the current page directory
-pdirectory* vmmngr_get_directory();
+pdirectory* virt_mem_get_directory();
 
 // flush a cached virtual address
-void vmmngr_flush_TLB_entry(virtual_addr addr);
+void virt_mem_flush_TLB_entry(virtual_addr addr);
 
 // clear a page table
-error_t vmmngr_ptable_clear(ptable* table);
+error_t virt_mem_ptable_clear(ptable* table);
 
 // returns entry of ptable p based on addr
-pt_entry* vmmngr_ptable_lookup_entry(ptable* p, virtual_addr addr);
+pt_entry* virt_mem_ptable_lookup_entry(ptable* p, virtual_addr addr);
 
 // clear a page directory
-error_t vmmngr_pdirectory_clear(pdirectory* pdir);
+error_t virt_mem_pdirectory_clear(pdirectory* pdir);
 
 // returns entry of pdirectory p based on addr
-pd_entry* vmmngr_pdirectory_lookup_entry(pdirectory* p, virtual_addr addr);
+pd_entry* virt_mem_pdirectory_lookup_entry(pdirectory* p, virtual_addr addr);
 
 // print a directory structure (for debug purposes)
-void vmmngr_print(pdirectory* dir);
+void virt_mem_print(pdirectory* dir);
 
 // returns the physical address associated with this virtual address
-physical_addr vmmngr_get_phys_addr(virtual_addr addr);
+physical_addr virt_mem_get_phys_addr(virtual_addr addr);
 
 // returns true if the page given by the virtual address is present IN RAM
-int vmmngr_is_page_present(virtual_addr addr);
+int virt_mem_is_page_present(virtual_addr addr);
 
 // creates a page table for the dir address space
-// error_t vmmngr_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags);
+// error_t virt_mem_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags);
 
-// creates a new address space
-pdirectory* vmmngr_create_address_space();
+// creates a new address space and returns its physical address
+physical_addr virt_mem_create_address_space();
 
 // maps the kernel pages to the directory given
-error_t vmmngr_map_kernel_space(pdirectory* pdir);
+error_t virt_mem_map_kernel_space(pdirectory* pdir);
 
-error_t vmmngr_switch_to_kernel_directory();
+error_t virt_mem_switch_to_kernel_directory();
 
 // return the page size
-uint32_t vmmngr_get_page_size();
+uint32_t virt_mem_get_page_size();
 
 #endif

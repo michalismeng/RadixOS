@@ -9,7 +9,7 @@
 // libk cannot be used since it is mapped at the higher memory (3 GB)
 
 // kernel entry point
-extern void kernel_entry(multiboot_info_t* mbd);
+extern void kernel_entry(multiboot_info_t* mbd, uint32_t* page_directory);
 
 // reserve 32 KB of empty for the page directory 
 uint8_t* dummy_space = 0x80000;
@@ -123,7 +123,7 @@ void initializer_main(multiboot_info_t* mbd, unsigned int magic)
     asm ("movl %0, %%eax; movl %%eax, %%cr3;"::"r"(page_directory):"%eax");
     asm ("movl %cr0, %eax; orl $0x80000001, %eax; movl %eax, %cr0");
 
-    kernel_entry(mbd);
+    kernel_entry(mbd, page_directory);
 
     for(;;);
 }
