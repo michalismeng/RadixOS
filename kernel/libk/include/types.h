@@ -19,6 +19,9 @@ enum error_t
 	ERROR_OCCUR = 0
 };
 
+#define VIRT_MEM_PAGES_PER_TABLE 1024	// intel arch definitions
+#define VIRT_MEM_PAGES_PER_DIR	1024
+
 #define CHK_BIT(x, bit) ( ( (x) & (bit) ) == (bit) )
 
 #define KB *1024

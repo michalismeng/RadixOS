@@ -186,7 +186,7 @@ error_t virt_mem_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags
 	if (!entry)
 		return ERROR_OCCUR;
 
-	ptable* table = (ptable*)phys_mem_alloc_above(0x120000);		// TODO: Investigate why memory above 1mb (alloced at 0x10A000) does not work
+	ptable* table = (ptable*)phys_mem_alloc_above_1mb();
 	if (!table)
 		return ERROR_OCCUR;		// not enough memory!!
 
@@ -199,31 +199,15 @@ error_t virt_mem_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags
 
 // public functions
 
-error_t virt_mem_init(uint32_t kernel_pages)
+error_t virt_mem_init(pdirectory* old_directory)
 {
-	pdirectory* pdir = (pdirectory*)phys_mem_alloc();
-	if (pdir == 0)
-		return ERROR_OCCUR;
+	pdirectory* new_dir = (pdirectory*)virt_mem_deep_clone_directory(old_directory);
 
-	kernel_directory = pdir;
-	memset(pdir, 0, sizeof(pdirectory));
+	// map the last directory entry to point to itself => recursion
+	pd_entry_add_attrib(&new_dir->entries[1023], VIRT_MEM_DEFAULT_PDE_FLAGS);
+	pd_entry_set_frame(&new_dir->entries[1023], new_dir);
 
-	physical_addr phys = 0;		// page directory structure is allocated at the beginning (<1MB) (false)
-								// so identity map the first 4MB to be sure we can point to them
-
-	for (uint32_t i = 0; i < 1024; i++, phys += 4096)
-		if (virt_mem_map_page(pdir, phys, phys, VIRT_MEM_DEFAULT_FLAGS) != ERROR_OK)
-			return ERROR_OCCUR;
-
-	phys = 0x100000;
-	virtual_addr virt = 0xC0000000;
-
-	for (uint32_t i = 0; i < kernel_pages; i++, virt += 4096, phys += 4096)
-		if (virt_mem_map_page(pdir, phys, virt, VIRT_MEM_DEFAULT_FLAGS) != ERROR_OK)
-			return ERROR_OCCUR;
-
-	if (virt_mem_switch_directory(pdir, (physical_addr)&pdir->entries) != ERROR_OK)
-		return ERROR_OCCUR;
+	virt_mem_switch_directory(new_dir);
 
 	// register_interrupt_handler(14, page_fault);
 	// register_bottom_interrupt_handler(14, page_fault_bottom);
@@ -271,7 +255,7 @@ error_t virt_mem_unmap_page(pdirectory* dir, virtual_addr virt)
 
 error_t virt_mem_alloc_page(virtual_addr base)
 {
-	return virt_mem_alloc_page_f(base, VIRT_MEM_DEFAULT_FLAGS);
+	return virt_mem_alloc_page_f(base, VIRT_MEM_DEFAULT_PTE_FLAGS);
 }
 
 error_t virt_mem_alloc_page_f(virtual_addr base, uint32_t flags)
@@ -306,20 +290,38 @@ error_t virt_mem_free_page(virtual_addr base)
 	return ERROR_OK;
 }
 
-error_t virt_mem_switch_directory(pdirectory* dir, physical_addr pdbr)
+error_t virt_mem_switch_directory(physical_addr new_dir)
 {
 	// if the page directory hasn't change do not flush cr3 as such an action is a performance hit
 	// if (pmmngr_get_PDBR() == pdbr)
 	// 	return ERROR_OK;				TODO: this must be per-processor
 
-	current_directory = dir;		// TODO: make these processor-specific
-	current_pdbr = pdbr;
-
-	// TODO: load pdbr
-
-	// pmmngr_load_PDBR(current_pdbr);
+	asm ("movl %0, %%eax; movl %%eax, %%cr3;"::"r"(new_dir):"%eax");
 
 	return ERROR_OK;
+}
+
+pdirectory* virt_mem_deep_clone_directory(pdirectory* dir)
+{
+	pdirectory* new_dir = (pdirectory*)phys_mem_alloc_above_1mb();
+	memcpy(new_dir, dir, PAGE_SIZE);
+
+	for(int i = 0; i < VIRT_MEM_PAGES_PER_DIR; i++)
+	{
+		pd_entry* new_e = &new_dir->entries[i];
+
+		// if the table is present
+		if(pd_entry_is_present(*new_e))
+		{
+			ptable* new_table = (ptable*)phys_mem_alloc_above_1mb();	// allocate new space for the table entries
+			ptable* old_table = pd_entry_get_frame(*new_e);				// the page table in the old directory (we used the directory's frame pointer)
+			memcpy(new_table, old_table, PAGE_SIZE);
+
+			pd_entry_set_frame(new_e, new_table);						// set the new table frame for our new directory entry
+		}
+	}
+
+	return new_dir;
 }
 
 pdirectory* virt_mem_get_directory()
@@ -340,18 +342,9 @@ error_t virt_mem_ptable_clear(ptable* table)
 	return ERROR_OK;
 }
 
-pt_entry* virt_mem_ptable_lookup_entry(ptable* p, virtual_addr addr)
-{
-	if (p)
-		return &p->entries[PAGE_TABLE_INDEX(addr)];
-
-	// set_last_error(EINVAL, VMEM_BAD_ARGUMENT, EO_virt_mem);
-	return 0;
-}
-
 error_t virt_mem_pdirectory_clear(pdirectory* pdir)
 {
-	for (int i = 0; i < TABLES_PER_DIR; i++)
+	for (int i = 0; i < VIRT_MEM_PAGES_PER_DIR; i++)
 	{
 		if (virt_mem_ptable_clear((ptable*)pd_entry_get_frame(pdir->entries[i])) != ERROR_OK)
 			return ERROR_OCCUR;
@@ -361,6 +354,15 @@ error_t virt_mem_pdirectory_clear(pdirectory* pdir)
 	phys_mem_dealloc((physical_addr)pdir);		// TODO: This should be physical address, not virtual
 
 	return ERROR_OK;
+}
+
+pt_entry* virt_mem_ptable_lookup_entry(ptable* p, virtual_addr addr)
+{
+	if (p)
+		return &p->entries[PAGE_TABLE_INDEX(addr)];
+
+	// set_last_error(EINVAL, VMEM_BAD_ARGUMENT, EO_virt_mem);
+	return 0;
 }
 
 pd_entry* virt_mem_pdirectory_lookup_entry(pdirectory* p, virtual_addr addr)
@@ -453,10 +455,37 @@ error_t virt_mem_map_kernel_space(pdirectory* pdir)
 // not necessary
 error_t virt_mem_switch_to_kernel_directory()
 {
-	return virt_mem_switch_directory(kernel_directory, (physical_addr)kernel_directory);
+	// return virt_mem_switch_directory(kernel_directory, (physical_addr)kernel_directory);
 }
 
 uint32_t virt_mem_get_page_size()
 {
 	return PAGE_SIZE;
+}
+
+uint32_t virt_mem_count_present_tables(pdirectory* pdir)
+{
+	uint32_t count = 0;
+
+	for(int i = 0; i < VIRT_MEM_PAGES_PER_DIR; i++)
+		if(pd_entry_is_present(pdir->entries[i]))
+			count++;
+
+	return count;
+}
+
+pdirectory* virt_mem_get_current_directory()
+{
+	return (pdirectory*)0xFFFFF000;		// get the last entry of the last directory table which is itself pointing to the start of the directory table
+										// check recursive mapping of the last page table 
+}
+
+ptable* virt_mem_get_page_table(uint32_t index)
+{
+	return (ptable*)(0xFFC00000 + (index << 12));	// last directory entry (which points to the directory table) + offset to the correct table
+}
+
+ptable* virt_mem_get_page_table_index_by_address(virtual_addr addr)
+{
+	return (addr & 0x003FF000) >> 12;			// take the middle 10 bits as tha page table index
 }

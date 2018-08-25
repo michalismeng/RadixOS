@@ -11,7 +11,7 @@
 // kernel entry point
 extern void kernel_entry(multiboot_info_t* mbd, uint32_t* page_directory);
 
-// reserve 32 KB of empty for the page directory 
+// reserve 32 KB of empty for the page directory  (below 1mb)
 uint8_t* dummy_space = 0x80000;
 
 void print_to_screen(char* msg, uint32_t length)

@@ -7,11 +7,23 @@
 #include <vmmngr_pte.h>
 #include <vmmngr_pde.h>
 
-#define PAGES_PER_TABLE 1024	// intel arch definitions
-#define TABLES_PER_DIR	1024
+// TODO: Move these to some virtual memory definitions...
+// page table definition
+typedef struct page_table
+{
+	pt_entry entries[VIRT_MEM_PAGES_PER_TABLE];
+} ptable;
+
+// page directory definition
+typedef struct page_directory
+{
+	pd_entry entries[VIRT_MEM_PAGES_PER_DIR];
+} pdirectory;
+
 #define PAGE_SIZE 4096
 
-#define VIRT_MEM_DEFAULT_FLAGS I86_PDE_PRESENT | I86_PDE_WRITABLE	// default flags for page tables and pages.
+#define VIRT_MEM_DEFAULT_PDE_FLAGS I86_PDE_PRESENT | I86_PDE_WRITABLE	// default flags for page tables.
+#define VIRT_MEM_DEFAULT_PTE_FLAGS I86_PTE_PRESENT | I86_PTE_WRITABLE	// default flags for page entries.
 
 // definitions for entry extraction based on virtual address. (see virtual address format)
 
@@ -21,18 +33,6 @@
 
 void page_fault(iregisters_t* regs);
 
-// page table definition
-typedef struct page_table
-{
-	pt_entry entries[PAGES_PER_TABLE];
-} ptable;
-
-// page directory definition
-typedef struct page_directory
-{
-	pd_entry entries[TABLES_PER_DIR];
-} pdirectory;
-
 // USEFUL DATA CHAIN cr3 -> pdirectory -> (PAGE_DIR_INDEX(v_addr)) -> pd_entry -> (PAGE_GET_PHYSICAL_ADDR(pd_entry)) -> ptable
 //					 ptable -> (PAGE_TABLE_INDEX(v_addr)) -> pt_entry -> (PAGE_GET_PHYSICAL_ADDR(pt_entry)) -> physical address
 
@@ -40,8 +40,8 @@ typedef struct page_directory
 
 // INTERFACE
 
-// initializes the virtual memory manager
-error_t virt_mem_init(uint32_t kernel_pages);
+// initializes the virtual memory manager given the dummy directory created by the initializer 
+error_t virt_mem_init(pdirectory* old_directory);
 
 // maps the virtual address given to the physical address given
 error_t virt_mem_map_page(pdirectory* dir, physical_addr phys, virtual_addr virt, uint32_t flags);
@@ -59,7 +59,10 @@ error_t virt_mem_alloc_page_f(virtual_addr base, uint32_t flags);
 error_t virt_mem_free_page(virtual_addr base);
 
 // switch page directory
-error_t virt_mem_switch_directory(pdirectory* dir, physical_addr pdbr);
+error_t virt_mem_switch_directory(physical_addr pdbr);
+
+// copies all the entries of a directory and returns the physical address of the new one
+pdirectory* virt_mem_deep_clone_directory(pdirectory* dir);
 
 // get the current page directory
 pdirectory* virt_mem_get_directory();
@@ -101,5 +104,19 @@ error_t virt_mem_switch_to_kernel_directory();
 
 // return the page size
 uint32_t virt_mem_get_page_size();
+
+// returns the number of the page tables that are currently marked as present
+uint32_t virt_mem_count_present_tables(pdirectory* pdir);
+
+// returns the current directory based on recursive mapping
+pdirectory* virt_mem_get_current_directory();
+
+// returns the address of the page table requested by index based on recursive mapping
+// index must be < 1023. When index is 1023 the last table is used which returns the current page directory
+ptable* virt_mem_get_page_table(uint32_t index);
+
+// returns the page table index that is associated with this address
+ptable* virt_mem_get_page_table_index_by_address(virtual_addr addr);
+
 
 #endif

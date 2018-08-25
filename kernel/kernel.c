@@ -61,7 +61,6 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 	printfln("GRUB detected %u KB lower and %u MB higher", mbd->mem_lower, mbd->mem_upper / 1024);
 
 	multiboot_memory_map_t* entry = (multiboot_memory_map_t*)(mbd->mmap_addr);
-	int error = 0;
 
 	printfln("total memory blocks: %u -> %u KB -> %u MB", phys_mem_get_block_count(), phys_mem_get_block_count() * 4, phys_mem_get_block_count() * 4 / 1024);
 
@@ -81,12 +80,32 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 
 	// reserve space for kernel
 	uint32_t kernel_length = &kernel_end - &kernel_start;
-	if(phys_mem_reserve_region(&kernel_start - 0xC0000000 + 0x100000, kernel_length + 4096 - kernel_length % 4096) != ERROR_OK)
+	if(phys_mem_reserve_region((uint32_t)&__kernel_physical_start, kernel_length + 4096 - kernel_length % 4096) != ERROR_OK)
 		PANIC("Could not reserve physical memory for the kernel");
 	
 	// reserve space for the memory manager
 	if(phys_mem_reserve_region(0x200000, phys_mem_get_bitmap_size() + 4096 - phys_mem_get_bitmap_size() % 4096) != ERROR_OK)
 		PANIC("Could not reserve physical memory for the memory manager");
+
+	virt_mem_init(page_dir);
+
+	// This shows how to add a table using recursion
+	// care is needed when setting the table to 0
+
+	// physical_addr table_phys = phys_mem_alloc_above_1mb();
+	// virtual_addr vaddr = 0x900000;
+
+	// uint32_t index = virt_mem_get_page_table_index_by_address(vaddr);
+	// printfln("page table index is %u", index);
+
+	// pd_entry* e = &virt_mem_get_current_directory()->entries[index];
+	// printfln("page table address: %h", e);
+
+	// pd_entry_add_attrib(e, VIRT_MEM_DEFAULT_PDE_FLAGS);
+	// pd_entry_set_frame(e, table_phys);
+
+	// ptable* table = virt_mem_get_page_table(index);
+	// memset(table, 0, 4096);
 
 	PANIC("Setup virtual memory");
 
