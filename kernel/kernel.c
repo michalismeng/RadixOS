@@ -87,7 +87,11 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 	if(phys_mem_reserve_region(0x200000, phys_mem_get_bitmap_size() + 4096 - phys_mem_get_bitmap_size() % 4096) != ERROR_OK)
 		PANIC("Could not reserve physical memory for the memory manager");
 
-	virt_mem_init(page_dir);
+	// --------------------------- end: physical memory manager ---------------------------
+
+	// initialize the virtual memory manager
+	physical_addr pdir = virt_mem_init(page_dir);
+	get_gst()->BSP_dir = pdir;
 
 	// This shows how to add a table using recursion
 	// care is needed when setting the table to 0
@@ -107,14 +111,10 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 	// ptable* table = virt_mem_get_page_table(index);
 	// memset(table, 0, 4096);
 
-	PANIC("Setup virtual memory");
-
-	// --------------------------- end: physical memory manager ---------------------------
-
-	// TODO: Properly setup virtual space
+	// PANIC("Setup virtual memory");
 
 	// allocate memory for the acpi resources
-	physical_addr x = phys_mem_alloc_above_1mb();
+	physical_addr x = phys_mem_alloc_above_1mb();		// TODO: Allocate virtual memory
 	heap_t* kheap = heap_create(x, 4096);
 
 	// --------------------------- parse acpi tables !!! ---------------------------
@@ -126,7 +126,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 	get_gst()->RSDP_base = rsdp;				// store the rsd pointer for future access
 
 	// perform the enumeration of acpi resources
-	if(rsdp_first_parse(rsdp) != 0)					// <<<---- This crashes due to paging
+	if(rsdp_first_parse(rsdp) != 0)
 		PANIC("error occured during first rsdp parsing!");
 
 	printfln("acpi resources: lapic: %h, rsdp: %h, processors: %u", get_gst()->lapic_base, get_gst()->RSDP_base, get_gst()->processor_count);
@@ -183,13 +183,8 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 	
 	// boot each processor (except for the current one which is already running ...)
 
-	// prepare the PIT - not very useful now
-	//pit_timer_init(1000, 0);
-	//ioapic_map_irq(get_gst()->ioapic_base, 0, gst_get_int_override(0), 224);
-
 	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
 	lapic_enable(get_gst()->lapic_base);
-	// calibrate the lapic timer of the BSP
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
 	INT_ON;
@@ -199,6 +194,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 
 	printfln("processor 0 is awake");
 	startup_all_AP();
+
 
 	printfln("******** all processors booted ********");
 	lock = 0;

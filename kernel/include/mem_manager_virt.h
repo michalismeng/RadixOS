@@ -31,8 +31,6 @@ typedef struct page_directory
 #define PAGE_TABLE_INDEX(x)			( ((x) >> 12) & 0x3ff )		// Get the 10 "middle" bits of x
 #define PAGE_GET_PHYSICAL_ADDR(x)	( (*x) & ~0xfff )			// Physical address is 4KB aligned, so return all bits except the 12 first
 
-void page_fault(iregisters_t* regs);
-
 // USEFUL DATA CHAIN cr3 -> pdirectory -> (PAGE_DIR_INDEX(v_addr)) -> pd_entry -> (PAGE_GET_PHYSICAL_ADDR(pd_entry)) -> ptable
 //					 ptable -> (PAGE_TABLE_INDEX(v_addr)) -> pt_entry -> (PAGE_GET_PHYSICAL_ADDR(pt_entry)) -> physical address
 
@@ -41,7 +39,7 @@ void page_fault(iregisters_t* regs);
 // INTERFACE
 
 // initializes the virtual memory manager given the dummy directory created by the initializer 
-error_t virt_mem_init(pdirectory* old_directory);
+physical_addr virt_mem_init(pdirectory* old_directory);
 
 // maps the virtual address given to the physical address given
 error_t virt_mem_map_page(pdirectory* dir, physical_addr phys, virtual_addr virt, uint32_t flags);
@@ -62,7 +60,7 @@ error_t virt_mem_free_page(virtual_addr base);
 error_t virt_mem_switch_directory(physical_addr pdbr);
 
 // copies all the entries of a directory and returns the physical address of the new one
-pdirectory* virt_mem_deep_clone_directory(pdirectory* dir);
+physical_addr virt_mem_deep_clone_directory(pdirectory* dir);
 
 // get the current page directory
 pdirectory* virt_mem_get_directory();
@@ -112,11 +110,13 @@ uint32_t virt_mem_count_present_tables(pdirectory* pdir);
 pdirectory* virt_mem_get_current_directory();
 
 // returns the address of the page table requested by index based on recursive mapping
-// index must be < 1023. When index is 1023 the last table is used which returns the current page directory
+// index must be < 1024. When index is associated with address 0xC0000000 (index 768) then the page directory is returned 
 ptable* virt_mem_get_page_table(uint32_t index);
 
 // returns the page table index that is associated with this address
-ptable* virt_mem_get_page_table_index_by_address(virtual_addr addr);
+uint32_t virt_mem_get_page_table_index_by_address(virtual_addr addr);
 
+// return the directory entry index that is associated with this address
+uint32_t virt_mem_get_directory_index_by_address(virtual_addr addr);
 
 #endif

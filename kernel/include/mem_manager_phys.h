@@ -22,7 +22,7 @@ physical_addr phys_mem_alloc();
 physical_addr phys_mem_alloc_above_1mb();
 
 // deallocate a block of 4 KB
-int phys_mem_dealloc(physical_addr blk);
+error_t phys_mem_dealloc(physical_addr blk);
 
 uint32_t phys_mem_get_bitmap_size();
 

@@ -53,6 +53,13 @@ bits 32
         mul cx
         mov gs, ax                      ; fix gs to point to our core-specific data
 
+        mov eax, 0x80000                ; load the dummy page directory created when the BSP booted
+        mov cr3, eax
+
+        mov eax, cr0                    ; enable paging to be able to jump to kernel space
+        or eax, 0x80000000
+        mov cr0, eax
+
     	jmp dword [c_setup_proc]
     cli
     hlt

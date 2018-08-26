@@ -2,6 +2,8 @@
 #include <mem_manager_phys.h>
 #include <debug.h>
 #include <utility.h>
+#include <iregs.h>
+#include <gst.h>
 
 // private data
 
@@ -179,6 +181,20 @@ int page_fault_error_is_user(uint32_t error)
 // }
 #pragma endregion
 
+void page_fault_handler(iregisters_t* regs)
+{
+	uint32_t cr2;
+    __asm__ __volatile__ (
+        "mov %%cr2, %%eax\n\t"
+        "mov %%eax, %0\n\t"
+		: "=m" (cr2)
+    	: /* no input */
+    	: "%eax");
+
+	printfln("page fault occured at: %h", cr2);
+	virt_mem_map_page(virt_mem_get_current_directory(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
+}
+
 // creates a page table for the dir address space
 error_t virt_mem_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags)
 {
@@ -199,20 +215,25 @@ error_t virt_mem_create_table(pdirectory* dir, virtual_addr addr, uint32_t flags
 
 // public functions
 
-error_t virt_mem_init(pdirectory* old_directory)
+physical_addr virt_mem_init(pdirectory* old_directory)
 {
-	pdirectory* new_dir = (pdirectory*)virt_mem_deep_clone_directory(old_directory);
+	physical_addr new_dir_addr = virt_mem_deep_clone_directory(old_directory);
+	if(new_dir_addr == 0)
+		return 0;
 
-	// map the last directory entry to point to itself => recursion
-	pd_entry_add_attrib(&new_dir->entries[1023], VIRT_MEM_DEFAULT_PDE_FLAGS);
-	pd_entry_set_frame(&new_dir->entries[1023], new_dir);
+	pdirectory* new_dir = (pdirectory*)new_dir_addr;
 
-	virt_mem_switch_directory(new_dir);
+	// map the directory entry of address 0xC0000000 to point to itself => recursion
 
-	// register_interrupt_handler(14, page_fault);
-	// register_bottom_interrupt_handler(14, page_fault_bottom);
+	uint32_t index = virt_mem_get_directory_index_by_address(0xC0000000);
+	printfln("index of recursion page table: %u", index);
+	pd_entry_add_attrib(&new_dir->entries[index], VIRT_MEM_DEFAULT_PDE_FLAGS);
+	pd_entry_set_frame(&new_dir->entries[index], new_dir);
 
-	return ERROR_OK;
+	virt_mem_switch_directory(new_dir_addr);
+	isr_register(14, page_fault_handler);
+
+	return new_dir_addr;
 }
 
 error_t virt_mem_map_page(pdirectory* dir, physical_addr phys, virtual_addr virt, uint32_t flags)
@@ -262,7 +283,7 @@ error_t virt_mem_alloc_page_f(virtual_addr base, uint32_t flags)
 {
 	// assume that 'base' is not already allocated
 
-	physical_addr addr = (physical_addr)phys_mem_alloc();
+	physical_addr addr = (physical_addr)phys_mem_alloc_above_1mb();
 	if (addr == 0)
 		return ERROR_OCCUR;
 
@@ -301,7 +322,7 @@ error_t virt_mem_switch_directory(physical_addr new_dir)
 	return ERROR_OK;
 }
 
-pdirectory* virt_mem_deep_clone_directory(pdirectory* dir)
+physical_addr virt_mem_deep_clone_directory(pdirectory* dir)
 {
 	pdirectory* new_dir = (pdirectory*)phys_mem_alloc_above_1mb();
 	memcpy(new_dir, dir, PAGE_SIZE);
@@ -476,16 +497,21 @@ uint32_t virt_mem_count_present_tables(pdirectory* pdir)
 
 pdirectory* virt_mem_get_current_directory()
 {
-	return (pdirectory*)0xFFFFF000;		// get the last entry of the last directory table which is itself pointing to the start of the directory table
-										// check recursive mapping of the last page table 
+	uint32_t index = virt_mem_get_directory_index_by_address(0xC0000000);
+	return (pdirectory*)virt_mem_get_page_table(index);
 }
 
 ptable* virt_mem_get_page_table(uint32_t index)
 {
-	return (ptable*)(0xFFC00000 + (index << 12));	// last directory entry (which points to the directory table) + offset to the correct table
+	return (ptable*)(0xC0000000 + (index << 12));
 }
 
-ptable* virt_mem_get_page_table_index_by_address(virtual_addr addr)
+uint32_t virt_mem_get_page_table_index_by_address(virtual_addr addr)
 {
 	return (addr & 0x003FF000) >> 12;			// take the middle 10 bits as tha page table index
+}
+
+uint32_t virt_mem_get_directory_index_by_address(virtual_addr addr)
+{
+	return (addr & 0xFFC00000) >> 22;
 }

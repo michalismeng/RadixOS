@@ -14,10 +14,10 @@ void isr_init()
 
 void isr_handler(iregisters_t regs)
 {
-	if(per_cpu_read(PER_CPU_OFFSET(id)) == 1){
-		printfln("Processor 1, exception: %u at %h", regs.int_no, isr_handlers[regs.int_no]);
-		PANIC("");
-	}
+	// if(per_cpu_read(PER_CPU_OFFSET(id)) == 1){
+	// 	printfln("Processor 1, exception: %u at %h", regs.int_no, isr_handlers[regs.int_no]);
+	// 	PANIC("");
+	// }
 
 	if (isr_handlers[regs.int_no] != 0)
 	{

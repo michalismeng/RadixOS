@@ -176,7 +176,7 @@ physical_addr phys_mem_alloc_above_1mb()
 	return phys_mem_alloc_above(0x100000);
 }
 
-int phys_mem_dealloc(physical_addr block)
+error_t phys_mem_dealloc(physical_addr block)
 {
 	int frame = block / PHYS_MEM_BLOCK_SIZE;
 
@@ -187,7 +187,7 @@ int phys_mem_dealloc(physical_addr block)
 
 	release_lock(&phys_mem_lock);
 
-	return 0;
+	return ERROR_OK;
 }
 
 uint32_t phys_mem_get_bitmap_size()

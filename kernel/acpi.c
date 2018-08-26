@@ -5,6 +5,8 @@
 #include <gst.h>
 #include <per_cpu_data.h>
 
+#include <mem_manager_virt.h>
+
 /* Private Functions */
 
 uint8_t sum(void* base, uint32_t length)
@@ -158,6 +160,11 @@ int rsdp_first_parse(rsdp_descriptor_t* rsdp)
         return 1;
 
     rsdt_descriptor_t* rsdt = (rsdt_descriptor_t*)rsdp->rsdt_addr;
+
+    // map the page for usage
+    if(!virt_mem_is_page_present((uint32_t)rsdt & (~0xfff)))
+        virt_mem_map_page(virt_mem_get_current_directory(), (uint32_t)rsdt & (~0xfff), (uint32_t)rsdt & (~0xfff), VIRT_MEM_DEFAULT_PTE_FLAGS);
+
 	uint32_t entries = (rsdt->acpi_header.length - sizeof(acpi_dt_header_t)) / 4;
 
     for(uint32_t i = 0; i < entries; i++)

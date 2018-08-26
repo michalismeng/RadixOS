@@ -21,6 +21,8 @@ typedef struct global_system_table_struct_t
     gdt_ptr_t gdtr;                             // gdtr base (since gdt is shared among processors)
     idt_ptr_t idtr;                             // idtr base
 
+    physical_addr BSP_dir;                      // BSP kernel page directory that will be used by the APs
+
     rsdp_descriptor_t* RSDP_base;               // base of the RSDP acpi table
 
     uint8_t ioapic_overrides[16];               // overrides of legacy interrupts to the io apic (16 legacy interrupts in total)

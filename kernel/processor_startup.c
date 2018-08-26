@@ -5,6 +5,7 @@
 #include <screen.h>
 #include <spinlock.h>
 #include <mem_manager_phys.h>
+#include <mem_manager_virt.h>
 #include <kernel_definitions.h>
 
 extern uint32_t lock;  // lock, used to test spinlock functions when printing
@@ -39,6 +40,9 @@ void setup_processor()
     printfln("processor %u is awake at stack %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
 
 	idtr_install(&get_gst()->idtr);
+
+	// use the BSP page directory
+	virt_mem_switch_directory(get_gst()->BSP_dir);
 
     // void final_processor_setup();
 	lapic_enable(get_gst()->lapic_base);
