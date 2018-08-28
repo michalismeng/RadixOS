@@ -36,7 +36,7 @@ int32_t page_fault_handler(iregisters_t* regs)
     	: "%eax");
 
 	printfln("page fault occured at: %h", cr2);
-	virt_mem_map_page(virt_mem_get_current_directory(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
+	virt_mem_map_page(virt_mem_get_current_address_space(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
 
 	return 0;
 }
@@ -44,21 +44,6 @@ int32_t page_fault_handler(iregisters_t* regs)
 // creates a page table for the dir address space
 error_t virt_mem_create_table(address_space_t base, virtual_addr_t addr, uint32_t flags)
 {
-	// physical_addr table_phys = phys_mem_alloc_above_1mb();
-	// virtual_addr_t vaddr = 0x900000;
-
-	// uint32_t index = virt_mem_get_page_table_index_by_address(vaddr);
-	// printfln("page table index is %u", index);
-
-	// pd_entry* e = &virt_mem_get_current_directory()->entries[index];
-	// printfln("page table address: %h", e);
-
-	// pd_entry_add_attrib(e, VIRT_MEM_DEFAULT_PDE_FLAGS);
-	// pd_entry_set_frame(e, table_phys);
-
-	// ptable_t* table = virt_mem_get_page_table(index);
-	// memset(table, 0, 4096);
-
 	pdirectory_t* pdir = virt_mem_get_directory(base);
 	pd_entry* entry = virt_mem_get_page_directory_entry(pdir, addr);
 	if (!entry)

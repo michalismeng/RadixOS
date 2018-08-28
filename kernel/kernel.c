@@ -149,12 +149,14 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	if(get_gst()->ioapic_count != 1)
 		PANIC("ioapic count != 1. System not ready for this case");
 
+	// relocate the stack to a safe-ish location
+    asm ("movl %0, %%esp"::"r"(phys_mem_alloc_above_1mb() + 4094):"%esp");
 	printfln("current stack: %h", get_stack());
-	PANIC("");
 
 	// using the memory previously allocated, fill in the acpi data structures (mainly per_cpu_data)
 	if(rsdp_parse(rsdp) != 0)						// <<<--- TODO: We get exception 13
 		PANIC("error occured during rsdp parsing!");
+
 
 	// --------------------------- end: parse acpi tables !!! ---------------------------
 
@@ -195,7 +197,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	lock = 1;
 	ClearScreen();
 
-	printfln("processor 0 is awake");
+	printfln("processor 0 is awake at stack %h", get_stack());
 	startup_all_AP();
 
 

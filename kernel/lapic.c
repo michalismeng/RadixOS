@@ -15,6 +15,7 @@ void lapic_enable(physical_addr base_addr)
 {
     volatile uint32_t val = reg_readl(base_addr, LAPIC_SPURIOUS_INTERRUPT);
 
+
     // enable the lapic only if not already enabled
     // printfln("processor 1 starts lapic");
     if(( val & (1 << 8) ) == 0)
