@@ -10,7 +10,7 @@ typedef uint16_t WORD;
 typedef uint32_t DWORD;
 typedef void   VOID;
 
-typedef uint32_t virtual_addr;
+typedef uint32_t virtual_addr_t;
 typedef uint32_t physical_addr;
 
 enum error_t

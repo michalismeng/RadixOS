@@ -19,9 +19,8 @@
 #include <kernel_definitions.h>
 
 uint32_t lock = 0;
-// char stack[16 * 1024];
 
-void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
+void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 {
 	SetForegroundColor(VGA_COLOR_GREEN);
 	SetBackgroundColor(VGA_COLOR_BLACK);
@@ -29,6 +28,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 
 	printfln("Hello this is RadixOS");
 	printfln("Kernel loaded at: %h", KERNEL_START);
+	printfln("Global System Table at: %h", get_gst());
 
 	// initialize the global system table
 	memset(get_gst(), 0, sizeof(gst_t));
@@ -68,13 +68,9 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 	for(; (uint32_t)entry < mbd->mmap_addr + mbd->mmap_length;)
 	{
 		if(entry->type == 1)		// this is available memory
-		{
 			if(phys_mem_free_region((physical_addr)entry->addr, (uint32_t)entry->len - (uint32_t)entry->len % 4096) != ERROR_OK)
-			{
 				PANIC("Could not insert region into mmb");
-			}
-		}
-			
+
 		entry = (uint32_t)entry + entry->size + sizeof(entry->size);
 	}
 
@@ -90,14 +86,18 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 	// --------------------------- end: physical memory manager ---------------------------
 
 	// initialize the virtual memory manager
+
 	physical_addr pdir = virt_mem_init(page_dir);
 	get_gst()->BSP_dir = pdir;
 
-	// This shows how to add a table using recursion
+	virt_mem_map_page(virt_mem_get_current_address_space(), 0x300000, 0x600000, VIRT_MEM_DEFAULT_PDE_FLAGS);
+	printfln("tables: %u", virt_mem_count_present_tables(virt_mem_get_current_directory()));
+
+	// This shows how to add a table using recursion mapping
 	// care is needed when setting the table to 0
 
 	// physical_addr table_phys = phys_mem_alloc_above_1mb();
-	// virtual_addr vaddr = 0x900000;
+	// virtual_addr_t vaddr = 0x900000;
 
 	// uint32_t index = virt_mem_get_page_table_index_by_address(vaddr);
 	// printfln("page table index is %u", index);
@@ -149,8 +149,11 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory* page_dir)
 	if(get_gst()->ioapic_count != 1)
 		PANIC("ioapic count != 1. System not ready for this case");
 
+	printfln("current stack: %h", get_stack());
+	PANIC("");
+
 	// using the memory previously allocated, fill in the acpi data structures (mainly per_cpu_data)
-	if(rsdp_parse(rsdp) != 0)
+	if(rsdp_parse(rsdp) != 0)						// <<<--- TODO: We get exception 13
 		PANIC("error occured during rsdp parsing!");
 
 	// --------------------------- end: parse acpi tables !!! ---------------------------

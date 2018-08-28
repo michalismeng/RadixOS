@@ -101,6 +101,7 @@ int madt_parse(acpi_dt_header_t* header)
         {
             madt_ioapic_descriptor_t* ioapic = (madt_ioapic_descriptor_t*)madt_entry;
             get_gst()->ioapic_base = ioapic->ioapic_addr;
+
         }
         else if(madt_entry->entry_type == INTERRUPT_OVERRIDE)
         {
@@ -163,7 +164,7 @@ int rsdp_first_parse(rsdp_descriptor_t* rsdp)
 
     // map the page for usage
     if(!virt_mem_is_page_present((uint32_t)rsdt & (~0xfff)))
-        virt_mem_map_page(virt_mem_get_current_directory(), (uint32_t)rsdt & (~0xfff), (uint32_t)rsdt & (~0xfff), VIRT_MEM_DEFAULT_PTE_FLAGS);
+        virt_mem_map_page(virt_mem_get_current_address_space(), (uint32_t)rsdt & (~0xfff), (uint32_t)rsdt & (~0xfff), VIRT_MEM_DEFAULT_PTE_FLAGS);
 
 	uint32_t entries = (rsdt->acpi_header.length - sizeof(acpi_dt_header_t)) / 4;
 

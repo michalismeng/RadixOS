@@ -25,7 +25,7 @@ void print_to_screen(char* msg, uint32_t length)
     }
 }
 
-uint32_t map_page(uint32_t* page_directory, physical_addr pa, virtual_addr va)
+uint32_t map_page(uint32_t* page_directory, physical_addr pa, virtual_addr_t va)
 {
     static uint32_t dummy_space_index = 4096;
 
@@ -72,7 +72,7 @@ void initializer_main(multiboot_info_t* mbd, unsigned int magic)
     for(uint32_t index = 0; index < kernel_pages; index++)
     {
         physical_addr pa = KERNEL_PHYSICAL_START + index * PAGE_SIZE;
-        virtual_addr  va = KERNEL_START + index * PAGE_SIZE;
+        virtual_addr_t  va = KERNEL_START + index * PAGE_SIZE;
 
         uint32_t current_index = map_page(page_directory, pa, va);
 
@@ -88,7 +88,7 @@ void initializer_main(multiboot_info_t* mbd, unsigned int magic)
     for(uint32_t index = 0; index < init_pages; index++)
     {
         physical_addr pa = (uint32_t)&__kernel_init_start + index * PAGE_SIZE;
-        virtual_addr  va = pa;
+        virtual_addr_t  va = pa;
 
         uint32_t current_index = map_page(page_directory, pa, va);
 
@@ -106,7 +106,7 @@ void initializer_main(multiboot_info_t* mbd, unsigned int magic)
     for(uint32_t index = 0; index < 512 + 256; index++)
     {
         physical_addr pa = index * PAGE_SIZE;
-        virtual_addr  va = pa;
+        virtual_addr_t  va = pa;
 
         uint32_t current_index = map_page(page_directory, pa, va);
 

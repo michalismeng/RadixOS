@@ -25,7 +25,7 @@ SECTIONS
 
 	/* Switch to virtual addresses */
 
-	. = 0xC0400000;
+	. = 0xC0800000;
 
 	/* Physical start address of the kernel */
 	__kernel_physical_start = ADDR(.kernel_init) + SIZEOF(.kernel_init) + 4K - SIZEOF(.kernel_init) % 4K;
