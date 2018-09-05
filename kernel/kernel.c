@@ -18,7 +18,10 @@
 #include <spinlock.h>
 #include <kernel_definitions.h>
 
+#include <process.h>
 uint32_t lock = 0;
+
+heap_t* kheap;
 
 void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 {
@@ -115,7 +118,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	// allocate memory for the acpi resources
 	physical_addr x = phys_mem_alloc_above_1mb();		// TODO: Allocate virtual memory
-	heap_t* kheap = heap_create(x, 4096);
+	kheap = heap_create(x, 4096);
 
 	// --------------------------- parse acpi tables !!! ---------------------------
 	rsdp_descriptor_t* rsdp = rsdp_find();
@@ -154,7 +157,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	printfln("current stack: %h", get_stack());
 
 	// using the memory previously allocated, fill in the acpi data structures (mainly per_cpu_data)
-	if(rsdp_parse(rsdp) != 0)						// <<<--- TODO: We get exception 13
+	if(rsdp_parse(rsdp) != 0)
 		PANIC("error occured during rsdp parsing!");
 
 
@@ -183,7 +186,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	printfln("gdts are set");
 
 	// --------------------------- end: setup GDTs---------------------------
-
+	
 	// --------------------------- boot all processors ---------------------------
 	
 	// boot each processor (except for the current one which is already running ...)
@@ -204,7 +207,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	printfln("******** all processors booted ********");
 	lock = 0;
 	// --------------------------- end: boot all processors ---------------------------
-
+	
 	while(1)
 	{
 		acquire_lock(&lock);
