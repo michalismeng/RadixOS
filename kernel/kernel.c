@@ -176,22 +176,24 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
 	// ----------------------- test vm contract -------------------------------------
-	// ClearScreen();
+	ClearScreen();
 
-	// vm_contract_t mem_contract;
-	// vm_contract_init(&mem_contract);
+	vm_contract_t mem_contract;
+	vm_contract_init(&mem_contract);
 
-	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 4095, 1, 0, 0)));
-	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 1 MB - 1, 0, 0, 0)));
-	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(4096, 1 MB - 1, 0, 0, 0)));
-	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(1 MB, 2 MB - 1, 0, 0, 0)));
+	printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 4095, 1, 0, 0)));
+	printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 1 MB - 1, 0, 0, 0)));
+	printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(4096, 1 MB - 1, 0, 0, 0)));
+	printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(1 MB, 2 MB - 1, 0, 0, 0)));
 
-	// vm_area_t* target = vm_contract_find_area(&mem_contract, 500);
-	// printfln("target area: %h - %h", target->start_addr, target->end_addr);
+	vm_area_t* target = vm_contract_find_area(&mem_contract, 500);
+	printfln("target area: %h - %h", target->start_addr, target->end_addr);
 
-	// vm_contract_print(&mem_contract);
+	vm_contract_remove_area(&mem_contract, target);
 
-	// PANIC("TEST END...");
+	vm_contract_print(&mem_contract);
+
+	PANIC("TEST END...");
 
 	// ----------------------- test vm contract -------------------------------------
 

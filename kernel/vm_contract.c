@@ -29,6 +29,18 @@ static int get_node_balance(vm_area_node_t* node)
 	return get_node_height(node->left) - get_node_height(node->right);
 }
 
+static vm_area_node_t* get_node_min_value(vm_area_node_t* root)
+{
+	if(root == 0)
+		return 0;
+
+	vm_area_node_t* current = root;
+	while(current->left)
+		current = current->left;
+	
+	return current;
+}
+
 static vm_area_node_t* avl_rotate_right(vm_area_node_t* n)
 {
 	vm_area_node_t* x = n->left;
@@ -105,6 +117,80 @@ static vm_area_node_t* avl_insert(vm_area_node_t* tree, vm_area_node_t* ins)
 	return tree;
 }
 
+static vm_area_node_t* avl_remove(vm_area_node_t* root, vm_area_t* area, vm_area_node_t** removed_node)
+{
+	if(root == 0)
+		return 0;
+
+	uint32_t key = area->start_addr;
+
+	if(key < root->area.start_addr)
+		root->left = avl_remove(root->left, area, removed_node);
+	else if(key > root->area.start_addr)
+		root->right = avl_remove(root->right, area, removed_node);
+	else
+	{
+		if(root->left == 0 && root->right == 0)		// node with no children
+		{
+			*removed_node = root;
+			root = 0;
+		}
+		else if(root->left == 0 || root->right == 0)		// node with one child
+		{
+			vm_area_node_t* non_empty = root->left ? root->left : root->right;
+			vm_area_node_t temp = *root;
+
+			// swap contents of child and root
+			*root = *non_empty;			// copy child contents to root
+			*non_empty = temp;			// copy root contents to child
+
+			*removed_node = non_empty;
+		}
+		else										// node with both children
+		{
+			vm_area_node_t* min_node = get_node_min_value(root->right);
+			vm_area_node_t temp = *root;
+			vm_area_node_t* removed;
+
+			// swap contents of min node and root
+			root->area = min_node->area;     
+			
+			root->right = avl_remove(root->right, &min_node->area, &removed);
+			removed->area = temp.area;
+
+			*removed_node = removed;
+		}
+	}
+
+	if(root == 0)
+		return 0;
+
+	root->height = 1 + max(get_node_height(root->left), get_node_height(root->right));
+	root->max = max(root->area.end_addr, max(get_node_max(root->left), get_node_max(root->right)));
+
+	int balance = get_node_balance(root);
+
+	if(balance > 1 && get_node_balance(root->left) >= 0)
+		return avl_rotate_right(root);
+
+	if(balance > 1 && get_node_balance(root->left) < 0)
+	{
+		root->left = avl_rotate_left(root->left);
+		return avl_rotate_right(root);
+	}
+
+	if(balance < -1 && get_node_balance(root->right) <= 0)
+		return avl_rotate_left(root);
+
+	if(balance < -1 && get_node_balance(root->right) > 0)
+	{
+		root->right = avl_rotate_right(root->right);
+		return avl_rotate_left(root->left);
+	}
+
+	return root;
+}
+
 static vm_area_node_t* interval_intersect(vm_area_node_t* root, vm_area_t* area)
 {
 	if (root == NULL)
@@ -145,6 +231,11 @@ static void vm_contract_print_rec(vm_area_node_t* root)
 	vm_contract_print_rec(root->right);
 }
 
+static void __vm_contract_add_area(vm_contract_t* c, vm_area_node_t* node)
+{
+	c->root = avl_insert(c->root, node);
+}
+
 // public functions
 
 void vm_contract_init(vm_contract_t* c)
@@ -175,27 +266,24 @@ error_t vm_contract_add_area(vm_contract_t* c, vm_area_t new_area)
 		return ERROR_OCCUR;
 	}
 
-	c->root = avl_insert(c->root, new_node);
+	__vm_contract_add_area(c, new_node);
 	return ERROR_OK;
 }
 
 error_t vm_contract_remove_area(vm_contract_t* c, vm_area_t* area)
 {
 	// TODO: Add remove code
+	if(!vm_area_is_removable(area))
+	{
+		// set error: area non-removable
+		return ERROR_OCCUR;
+	}
 
+	vm_area_node_t* removed_node = 0;
+	c->root = avl_remove(c->root, area, &removed_node);
 
-	// if (vm_area_is_removable(area) == false)
-	// {
-	// 	DEBUG("Attempting to remove non-removable vm_area_t");
-	// 	set_last_error(EINVAL, VM_CONTRACT_AREA_NON_REMOVABLE, EO_VM_CONTRACT);
-	// 	return ERROR_OCCUR;
-	// }
-
-	// if (ordered_vector_remove(&c->contract, ordered_vector_find(&c->contract, *area)) == false)
-	// {
-	// 	set_last_error(EINVAL, VM_CONTRACT_NOT_FOUND, EO_VM_CONTRACT);
-	// 	return ERROR_OCCUR;
-	// }
+	if(removed_node)
+		heap_free(kheap, removed_node);
 
 	return ERROR_OK;
 }
@@ -290,7 +378,7 @@ virtual_addr_t vm_contract_get_area_for_length(vm_contract_t* c, uint32_t length
 	// }
 
 	// set_last_error(EINVAL, VM_CONTRACT_NOT_FOUND, EO_VM_CONTRACT);
-	// return 0;
+	return 0;
 }
 
 void vm_contract_print(vm_contract_t* c)
