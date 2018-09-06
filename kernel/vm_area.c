@@ -9,7 +9,7 @@
 int vm_area_check_bounds(uint32_t start, uint32_t end)
 {
 	if (start % virt_mem_get_page_size() != 0 ||
-		end   % virt_mem_get_page_size() != 0 ||
+		(end - start + 1) % virt_mem_get_page_size() != 0 ||
 		start >= end)
 		return 0;
 

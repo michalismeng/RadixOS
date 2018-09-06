@@ -7,6 +7,8 @@
 #include <mem_manager_phys.h>
 #include <mem_manager_virt.h>
 #include <kernel_definitions.h>
+#include <debug.h>
+#include <utility.h>
 
 extern uint32_t lock;  // lock, used to test spinlock functions when printing
 

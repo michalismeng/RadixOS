@@ -93,7 +93,7 @@ error_t virt_mem_map_page(address_space_t base, physical_addr phys, virtual_addr
 	pdirectory_t* pdir = virt_mem_get_directory(base);
 	pd_entry* e = virt_mem_get_page_directory_entry(pdir, virt);
 
-	if (!pd_entry_is_present(e))								// table is not present
+	if (!pd_entry_is_present(*e))								// table is not present
 		if (virt_mem_create_table(base, virt, flags) != ERROR_OK)
 			return ERROR_OCCUR;
 

@@ -21,7 +21,6 @@ uint8_t sum(void* base, uint32_t length)
 // search for 'length' bytes beginning from base to find a valid RSDP struct
 rsdp_descriptor_t* rsdp_find_in(physical_addr base, uint32_t length)
 {
-    char* sig = "RSD PTR ";
     // search at a 16-byte boundary (assume base is well-aligned)
     for(uint32_t i = 0; i < length; i += 16)
     {

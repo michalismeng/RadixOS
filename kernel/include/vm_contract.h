@@ -4,23 +4,12 @@
 #include <types.h>
 #include <vm_area.h>
 
-// enum VM_CONTRACT_ERROR
-// {
-// 	VM_CONTRACT_NONE,
-// 	VM_CONTRACT_BAD_ARGUMENTS,
-// 	VM_CONTRACT_NOT_FOUND,
-// 	VM_CONTRACT_BAD_AREA_ADDRESS,
-// 	VM_CONTRACT_AREA_NON_REMOVABLE,
-// 	VM_CONTRACT_OVERLAPS,
-// 	VM_CONTRACT_AREA_EXISTS
-// };
-
 // defines the node of a vm_area for use in the interval tree
 typedef struct vm_area_node
 {
-	vm_area_node* left, *right;				// left and regiht children
-	uint32_t height;						// height of this node
-	uint32_t max;							// maximum high address below this node
+	struct vm_area_node* left, *right;				// left and regiht children
+	uint32_t height;								// height of this node
+	uint32_t max;									// maximum high address below this node
 
 	vm_area_t area;
 

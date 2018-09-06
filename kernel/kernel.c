@@ -17,6 +17,7 @@
 #include <processor_startup.h>
 #include <spinlock.h>
 #include <kernel_definitions.h>
+#include <vm_contract.h>
 
 #include <process.h>
 uint32_t lock = 0;
@@ -93,29 +94,6 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	physical_addr pdir = virt_mem_init(page_dir);
 	get_gst()->BSP_dir = pdir;
 
-	virt_mem_map_page(virt_mem_get_current_address_space(), 0x300000, 0x600000, VIRT_MEM_DEFAULT_PDE_FLAGS);
-	printfln("tables: %u", virt_mem_count_present_tables(virt_mem_get_current_directory()));
-
-	// This shows how to add a table using recursion mapping
-	// care is needed when setting the table to 0
-
-	// physical_addr table_phys = phys_mem_alloc_above_1mb();
-	// virtual_addr_t vaddr = 0x900000;
-
-	// uint32_t index = virt_mem_get_page_table_index_by_address(vaddr);
-	// printfln("page table index is %u", index);
-
-	// pd_entry* e = &virt_mem_get_current_directory()->entries[index];
-	// printfln("page table address: %h", e);
-
-	// pd_entry_add_attrib(e, VIRT_MEM_DEFAULT_PDE_FLAGS);
-	// pd_entry_set_frame(e, table_phys);
-
-	// ptable* table = virt_mem_get_page_table(index);
-	// memset(table, 0, 4096);
-
-	// PANIC("Setup virtual memory");
-
 	// allocate memory for the acpi resources
 	physical_addr x = phys_mem_alloc_above_1mb();		// TODO: Allocate virtual memory
 	kheap = heap_create(x, 4096);
@@ -143,7 +121,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 		get_gst()->per_cpu_data_base = (per_cpu_data_t*)addr;
 
 	// allocate memory for the gdt entries (5? permanent for the kernel and the user and one for each processor, see below)
-	if((addr = heap_alloc_a(kheap, GDT_GENERAL_ENTRIES + get_gst()->processor_count * sizeof(gdt_entry_t), 4)) == 0)
+	if((addr = heap_alloc_a(kheap, (GDT_GENERAL_ENTRIES + get_gst()->processor_count) * sizeof(gdt_entry_t), 4)) == 0)
 		PANIC("gdt entries heap allocation failed");
 	else
 		get_gst()->gdt_entries = (gdt_entry_t*)addr;
@@ -171,12 +149,14 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	gdt_set_gate(get_gst()->gdt_entries, 3, 0, 0, GDT_RW | GDT_USER, GDT_SZ | GDT_GRAN);		// these are here for the userspace (not yet implemented)
 	gdt_set_gate(get_gst()->gdt_entries, 4, 0, 0, GDT_RW | GDT_USER, GDT_SZ | GDT_GRAN);
 
+
 	// setup a gdt entry for local cpu data (the gs segment will point to these) for each processor
 	for(uint32_t i = 0; i < get_gst()->processor_count; i++)
 	{
 		uint32_t base = (uint32_t)&get_gst()->per_cpu_data_base[i];
 		gdt_set_gate(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + i, base, sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
 	}
+
 
 	gdt_print_gate(get_gst()->gdt_entries, 5);
 	gdt_print_gate(get_gst()->gdt_entries, 6);
@@ -194,6 +174,27 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
 	lapic_enable(get_gst()->lapic_base);
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
+
+	// ----------------------- test vm contract -------------------------------------
+	// ClearScreen();
+
+	// vm_contract_t mem_contract;
+	// vm_contract_init(&mem_contract);
+
+	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 4095, 1, 0, 0)));
+	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 1 MB - 1, 0, 0, 0)));
+	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(4096, 1 MB - 1, 0, 0, 0)));
+	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(1 MB, 2 MB - 1, 0, 0, 0)));
+
+	// vm_area_t* target = vm_contract_find_area(&mem_contract, 500);
+	// printfln("target area: %h - %h", target->start_addr, target->end_addr);
+
+	// vm_contract_print(&mem_contract);
+
+	// PANIC("TEST END...");
+
+	// ----------------------- test vm contract -------------------------------------
+
 
 	INT_ON;
 	

@@ -4,6 +4,7 @@
 #include <types.h>
 #include <utility.h>
 #include <mem_manager_virt.h>
+#include <vm_contract.h>
 
 #define MAX_TASKS 3
 #define MAX_PROCESSES 30000
@@ -88,6 +89,8 @@ typedef struct process_control_block
 
 	uint8_t name[16];								// name of the process
 
+	vm_contract_t memory_contract;					// process memory map
+
 	struct process_control_block* next_ready;		// link to next ready process in the ready queue
 	struct process_control_block* prev_ready;		// link to previous ready process in the ready queue
 
@@ -98,14 +101,12 @@ typedef struct process_control_block
 
 	// local_file_table lft;					// local open file table
 
-	// vm_contract memory_contract;			// virtual memory layout
-	// spinlock contract_spinlock;				// virtual memory contract spinlock used for reading and writing
-
 	// TCB* threads;									// pointer to list of child threads of the process
 }PCB;
 
 
-// process table
+// process table.
+// TODO: This should reside in Process Manager process
 PCB process_slots[MAX_TASKS + MAX_PROCESSES];
 
 // PCB* process_create(PCB* parent, pdirectory_t* pdir, uint32_t low_address, uint32_t high_address);
