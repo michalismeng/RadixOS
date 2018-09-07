@@ -132,7 +132,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 		PANIC("ioapic count != 1. System not ready for this case");
 
 	// relocate the stack to a safe-ish location
-    asm ("movl %0, %%esp"::"r"(phys_mem_alloc_above_1mb() + 4094):"%esp");
+    asm ("movl %0, %%esp"::"r"(phys_mem_alloc_above_1mb() + 4096):"%esp");
 	printfln("current stack: %h", get_stack());
 
 	// using the memory previously allocated, fill in the acpi data structures (mainly per_cpu_data)
@@ -167,14 +167,6 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	printfln("gdts are set");
 
 	// --------------------------- end: setup GDTs---------------------------
-	
-	// --------------------------- boot all processors ---------------------------
-	
-	// boot each processor (except for the current one which is already running ...)
-
-	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
-	lapic_enable(get_gst()->lapic_base);
-	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
 	// ----------------------- test vm contract -------------------------------------
 	// ClearScreen();
@@ -196,10 +188,24 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	// PANIC("TEST END...");
 
-	// ----------------------- test vm contract -------------------------------------
+	// ----------------------- end: test vm contract -------------------------------------
+
+	
+	// ----------------------- setup timers -------------------------------------
+
+
+	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
+	lapic_enable(get_gst()->lapic_base);
+	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
 	// read computer time
 	rtc_read_time(&get_gst()->current_time);
+
+	// ----------------------- end: tsetup timers --------------------------------
+
+	// --------------------------- boot all processors ---------------------------
+	
+	// boot each processor (except for the current one which is already running ...)
 
 	INT_ON;
 	

@@ -18,29 +18,6 @@ static uint8_t rtc_read_prog_flag()
     return (inportb(RTC_PORT_DATA) & 0x80);
 }
 
-static uint8_t rtc_calc_weekday(uint16_t year, uint8_t month, uint8_t day)
-{
-    // use Schwerdtfeger's method to calculate gregorian week day
-    static uint8_t e[] = {/* Dummy entry for month=0 */-1, 0,3,2,5,0,3,5,1,4,6,2,4};
-    static uint8_t f_greogrian[] = {0,5,3,1};
-
-    uint32_t c, g, f;
-
-    if(month >= 3)
-    {
-        c = year / 100 * 100;
-        g = year - 100 * c;
-    }
-    else
-    {
-        c = (year - 1) / 100;
-        g = year - 1 - 100 * c;
-    }
-
-    uint8_t w = (day + e[month] + f_greogrian[c % 4] + g + g / 4) % 7;
-    return w;
-}
-
 #define rtc_is_bcd(s) (s & RTC_FORMAT_BCD)
 #define rtc_is_24(s)  (s & RTC_FORMAT_24)
 #define rtc_get_hour(h) (h & (~RTC_PM_BIT))
@@ -114,7 +91,7 @@ void rtc_read_time(time_t* time)
     time->hour = hour[0];
     time->day = day[0];
     time->month = month[0];
-    time->year = year[0];
+    time->year = year[0] + century[0];
 
-    time->weekday = rtc_calc_weekday(year[0], month[0], day[0]);
+    time->weekday = time_get_weekday(year[0], month[0], day[0]);
 }

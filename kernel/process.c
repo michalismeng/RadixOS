@@ -1,8 +1,12 @@
-// #include <process.h>
+#include <process.h>
 
-// // private data and functions
+// private data and functions
 
-// static uint32_t lastID = 0;
+// process table.
+// PCB process_slots[MAX_PROCESS_SLOTS];
+
+// thread table
+// TCB thread_slots[MAX_THREAD_SLOTS];
 
 // void thread_setup_execution_stack(TCB* t, uint32_t entry)
 // {

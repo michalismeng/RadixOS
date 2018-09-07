@@ -97,9 +97,9 @@ void startup_all_AP()
 			continue;
 
 		ready = 0;
-		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		            // mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
+		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		            	// mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
 
-		*(uint32_t*)0x800E = phys_mem_alloc_above_1mb();				// reserve 4KB stack for each processor. TODO: Memory base MUST change
+		*(uint32_t*)0x800E = phys_mem_alloc_above_1mb() + 4096;				// reserve 4KB stack for each processor. TODO: Memory base MUST change
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
 
 		// wait for the processor to gracefully boot 

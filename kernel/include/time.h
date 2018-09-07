@@ -29,4 +29,8 @@ static char* days_of_week[] =
 
 #define weekday_to_str(day) ( days_of_week[day] )
 
+// returns the weekday in gregorian calendar
+uint8_t time_get_weekday(uint16_t year, uint8_t month, uint8_t day);
+
+
 #endif
