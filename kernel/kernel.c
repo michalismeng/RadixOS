@@ -18,6 +18,7 @@
 #include <spinlock.h>
 #include <kernel_definitions.h>
 #include <vm_contract.h>
+#include <rtc.h>
 
 #include <process.h>
 uint32_t lock = 0;
@@ -176,27 +177,29 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
 	// ----------------------- test vm contract -------------------------------------
-	ClearScreen();
+	// ClearScreen();
 
-	vm_contract_t mem_contract;
-	vm_contract_init(&mem_contract);
+	// vm_contract_t mem_contract;
+	// vm_contract_init(&mem_contract);
 
-	printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 4095, 1, 0, 0)));
-	printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 1 MB - 1, 0, 0, 0)));
-	printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(4096, 1 MB - 1, 0, 0, 0)));
-	printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(1 MB, 2 MB - 1, 0, 0, 0)));
+	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 4095, 1, 0, 0)));
+	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(0, 1 MB - 1, 0, 0, 0)));
+	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(4096, 1 MB - 1, 0, 0, 0)));
+	// printfln("success: %u", vm_contract_add_area(&mem_contract, vm_area_create(1 MB, 2 MB - 1, 0, 0, 0)));
 
-	vm_area_t* target = vm_contract_find_area(&mem_contract, 500);
-	printfln("target area: %h - %h", target->start_addr, target->end_addr);
+	// vm_area_t* target = vm_contract_find_area(&mem_contract, 500);
+	// printfln("target area: %h - %h", target->start_addr, target->end_addr);
 
-	vm_contract_remove_area(&mem_contract, target);
+	// vm_contract_remove_area(&mem_contract, target);
 
-	vm_contract_print(&mem_contract);
+	// vm_contract_print(&mem_contract);
 
-	PANIC("TEST END...");
+	// PANIC("TEST END...");
 
 	// ----------------------- test vm contract -------------------------------------
 
+	// read computer time
+	rtc_read_time(&get_gst()->current_time);
 
 	INT_ON;
 	
@@ -216,9 +219,10 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 		acquire_lock(&lock);
 
 		int tempX = cursorX, tempY = cursorY;
-		SetPointer(0, SCREEN_HEIGHT - 2);
+		SetPointer(0, SCREEN_HEIGHT - 3);
 
-		printf("time: %u %u", lapic_millis(), per_cpu_read(PER_CPU_OFFSET(lapic_period)));
+		printf("%s-%u-%u %u:%u:%u", weekday_to_str(get_gst()->current_time.weekday), get_gst()->current_time.month, get_gst()->current_time.year,
+										get_gst()->current_time.hour, get_gst()->current_time.min, get_gst()->current_time.sec + lapic_millis() / 1000);
 
 		SetPointer(tempX, tempY);
 

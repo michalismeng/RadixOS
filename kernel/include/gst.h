@@ -6,6 +6,7 @@
 #include <idt.h>
 #include <acpi.h>
 #include <per_cpu_data.h>
+#include <time.h>
 
 #define MAX_CPUS    256         // maximum cpus the kernel can handle (acpi 1.0 defines processor id as 8 bits)
 
@@ -26,6 +27,8 @@ typedef struct global_system_table_struct_t
     rsdp_descriptor_t* RSDP_base;               // base of the RSDP acpi table
 
     uint8_t ioapic_overrides[16];               // overrides of legacy interrupts to the io apic (16 legacy interrupts in total)
+
+    time_t current_time;                        // current UTC time of day. Only the BSP should alter this field
 
     gdt_entry_t* gdt_entries;                   // global descriptor table entries (variable size to account for per processor data)
     per_cpu_data_t* per_cpu_ptrs[MAX_CPUS];     // pointers 
