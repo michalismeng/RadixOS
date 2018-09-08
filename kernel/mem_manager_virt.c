@@ -278,7 +278,7 @@ int virt_mem_is_page_present(virtual_addr_t addr)
 		return 0;
 
 	pt_entry* page = virt_mem_get_page_table_entry(table, addr);
-	if (!page || !pt_entry_is_present(*page) == 0)
+	if (!page || !pt_entry_is_present(*page))
 		return 0;
 
 	return 1;

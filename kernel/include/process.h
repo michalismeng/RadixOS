@@ -104,6 +104,9 @@ typedef struct process_control_block
 	TCB* threads;									// pointer to list of child threads of the process
 }PCB;
 
+// initialize process and thread structures - allocate static memory
+void process_init();
+
 
 PCB* process_create(PCB* parent, pdirectory_t* pdir, uint8_t* name);
 // TCB* thread_create(PCB* parent, uint32_t entry, virtual_addr_t stack_top, uint32_t stack_size, uint32_t priority);

@@ -25,6 +25,22 @@ uint32_t lock = 0;
 
 heap_t* kheap;
 
+// temp procedure to allocate static memory (non-freeable)
+virtual_addr_t alloc_perm()
+{
+	static virtual_addr_t current = 0;
+
+	if(current == 0)		// lame initialization to first free virtual address after the kernel
+		current = (ceil_division(KERNEL_END, virt_mem_get_page_size())) * virt_mem_get_page_size();
+
+	virtual_addr_t temp = current;
+	current += virt_mem_get_page_size();
+
+	if(virt_mem_alloc_page(temp) != ERROR_OK)
+		PANIC("Cannot allocate kernel memory");
+	return temp;
+}
+
 void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 {
 	SetForegroundColor(VGA_COLOR_GREEN);
@@ -94,10 +110,10 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	physical_addr pdir = virt_mem_init(page_dir);
 	get_gst()->BSP_dir = pdir;
+	ClearScreen();
 
-	// allocate memory for the acpi resources
-	physical_addr x = phys_mem_alloc_above_1mb();		// TODO: Allocate virtual memory
-	kheap = heap_create(x, 4096);
+	// allocate memory for the acpi resources (gdt entries are also allocated here so this heap must be identity mapped)
+	kheap = heap_create(phys_mem_alloc_above_1mb(), 4096);
 
 	// --------------------------- parse acpi tables !!! ---------------------------
 	rsdp_descriptor_t* rsdp = rsdp_find();
@@ -139,7 +155,6 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	if(rsdp_parse(rsdp) != 0)
 		PANIC("error occured during rsdp parsing!");
 
-
 	// --------------------------- end: parse acpi tables !!! ---------------------------
 
 	// --------------------------- setup GDTs ---------------------------
@@ -157,7 +172,6 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 		uint32_t base = (uint32_t)&get_gst()->per_cpu_data_base[i];
 		gdt_set_gate(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + i, base, sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
 	}
-
 
 	gdt_print_gate(get_gst()->gdt_entries, 5);
 	gdt_print_gate(get_gst()->gdt_entries, 6);
@@ -201,11 +215,12 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	// read computer time
 	rtc_read_time(&get_gst()->current_time);
 
-	// ----------------------- end: tsetup timers --------------------------------
+	// ----------------------- end: setup timers --------------------------------
 
 	// --------------------------- boot all processors ---------------------------
 	
 	// boot each processor (except for the current one which is already running ...)
+
 
 	INT_ON;
 	
@@ -215,10 +230,12 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	printfln("processor 0 is awake at stack %h", get_stack());
 	startup_all_AP();
 
-
 	printfln("******** all processors booted ********");
 	lock = 0;
 	// --------------------------- end: boot all processors ---------------------------
+
+	// initialize process structures
+	process_init();
 	
 	while(1)
 	{
@@ -227,8 +244,13 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 3);
 
-		printf("%s-%u-%u %u:%u:%u", weekday_to_str(get_gst()->current_time.weekday), get_gst()->current_time.month, get_gst()->current_time.year,
-										get_gst()->current_time.hour, get_gst()->current_time.min, get_gst()->current_time.sec + lapic_millis() / 1000);
+		printf("%s, %u-%u-%u %u:%u:%u", weekday_to_str(get_gst()->current_time.weekday), 
+										get_gst()->current_time.day, 
+										get_gst()->current_time.month, 
+										get_gst()->current_time.year,
+										get_gst()->current_time.hour, 
+										get_gst()->current_time.min, 
+										get_gst()->current_time.sec + lapic_millis() / 1000);
 
 		SetPointer(tempX, tempY);
 

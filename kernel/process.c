@@ -3,10 +3,32 @@
 // private data and functions
 
 // process table.
-// PCB process_slots[MAX_PROCESS_SLOTS];
+PCB* process_slots;
 
 // thread table
-// TCB thread_slots[MAX_THREAD_SLOTS];
+TCB* thread_slots;
+
+extern virtual_addr_t alloc_perm();
+
+void process_init()
+{
+    uint32_t process_pages = ceil_division(MAX_PROCESS_SLOTS * sizeof(PCB), virt_mem_get_page_size());
+	uint32_t thread_pages = ceil_division(MAX_THREAD_SLOTS * sizeof(TCB), virt_mem_get_page_size());
+
+	process_slots = alloc_perm();
+	for(uint32_t i = 0; i < process_pages - 1; i++)
+		alloc_perm();
+
+	thread_slots = alloc_perm();
+	for(uint32_t i = 0; i < thread_pages - 1; i++)
+		alloc_perm();
+
+	for(uint32_t i = 0; i < MAX_PROCESS_SLOTS; i++)
+		process_slots[i].flags = PROCESS_SLOT_EMPTY;
+			
+	for(uint32_t i = 0; i < MAX_THREAD_SLOTS; i++)
+		thread_slots[i].flags = THREAD_SLOT_EMPTY;
+}
 
 // void thread_setup_execution_stack(TCB* t, uint32_t entry)
 // {

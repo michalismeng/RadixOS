@@ -23,10 +23,15 @@ all: ap_boot $(OBJ_DEPS)
 
 	echo BUILD SUCESS
 
-# rule to run the system
+# rule to run the system in the default dual-core configuration
 run: all
 	grub-file --is-x86-multiboot radixOS.bin
 	qemu-system-i386 -smp cores=2,threads=1,sockets=1 -m 128 -kernel radixOS.bin
+
+# rule to run the system in the quad-core configuration
+run-quad: all
+	grub-file --is-x86-multiboot radixOS.bin
+	qemu-system-i386 -smp cores=4,threads=1,sockets=1 -m 128 -kernel radixOS.bin
 
 # rule to run the system in uniprocessor mode
 run-uni: all

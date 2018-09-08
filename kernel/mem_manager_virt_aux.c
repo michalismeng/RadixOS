@@ -14,7 +14,7 @@ ptable_t* virt_mem_get_page_table(address_space_t base, virtual_addr_t address)
 pdirectory_t* virt_mem_get_directory(address_space_t base)
 {
 	uint32_t index = virt_mem_get_page_table_index(base);        // we get the directory by getting the virtual address assocaited with the address space
-	return (ptable_t*)(base + (index << 12));
+	return (pdirectory_t*)(base + (index << 12));
 }
 
 pdirectory_t* virt_mem_get_current_directory()

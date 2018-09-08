@@ -38,13 +38,13 @@ void processor_startup(uint32_t lapic_id, physical_addr exec_base)
 // GS register should be set to the processor's local data area, prior to calling this function
 void setup_processor()
 {
-	uint32_t id = per_cpu_read(PER_CPU_OFFSET(id));
-    printfln("processor %u is awake at stack %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
+	// use the BSP page directory
+	virt_mem_switch_directory(get_gst()->BSP_dir);
 
 	idtr_install(&get_gst()->idtr);
 
-	// use the BSP page directory
-	virt_mem_switch_directory(get_gst()->BSP_dir);
+	uint32_t id = per_cpu_read(PER_CPU_OFFSET(id));
+    printfln("processor %u is awake at stack %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
 
     // void final_processor_setup();
 	lapic_enable(get_gst()->lapic_base);
@@ -88,7 +88,6 @@ void startup_all_AP()
 	*(uint32_t*)0x8002 = setup_processor;               // target 'c' function address to be called by the assembler
 	*(gdt_ptr_t*)0x8006 = get_gst()->gdtr;              // global descriptor table register address (processors share a common descriptor with different entries)
 
-
 	// currently the stack for each processor is allocated using the physical memory manager 
     // startup all but the first (BSP) processors
     for(uint32_t i = 1; i < get_gst()->processor_count; i++)
@@ -99,7 +98,7 @@ void startup_all_AP()
 		ready = 0;
 		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		            	// mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
 
-		*(uint32_t*)0x800E = phys_mem_alloc_above_1mb() + 4096;				// reserve 4KB stack for each processor. TODO: Memory base MUST change
+		*(uint32_t*)0x800E = phys_mem_alloc_above_1mb() + 4096;				// reserve 4KB stack for each processor. must be identity mapped region
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
 
 		// wait for the processor to gracefully boot 
