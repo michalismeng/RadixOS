@@ -32,6 +32,12 @@ void isr_handler(iregisters_t regs)
 
 void irq_handler(iregisters_t regs)
 {
+	printfln("spurious interrupt");
+	// TODO: Send PIC EOI
+}
+
+void acpi_irq_handler(iregisters_t regs)
+{
 	if (isr_handlers[regs.int_no] != 0)
 	{
 		isr_t handler = isr_handlers[regs.int_no];

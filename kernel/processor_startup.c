@@ -14,7 +14,7 @@ extern uint32_t lock;  // lock, used to test spinlock functions when printing
 
 // private functions and data
 
-volatile int ready = 0;
+spinlock_t ready = 0;
 
 uint32_t get_stack();
 
@@ -22,14 +22,13 @@ uint32_t get_stack();
 void processor_startup(uint32_t lapic_id, physical_addr exec_base)
 {
 	// implement intel protocol for processor boot 
-	
+		
 	// send the INIT interrupt and wait for 100ms
 	lapic_send_ipi(get_gst()->lapic_base, lapic_id, 0, LAPIC_DELIVERY_INIT, LAPIC_DESTINATION_PHYSICAL, LAPIC_DESTINATION_TARGET);
 	lapic_sleep(100);
 
 	// send the STARTUP interrupt and wait for 1ms
 	lapic_send_ipi(get_gst()->lapic_base, lapic_id, exec_base >> 12, LAPIC_DELIVERY_SIPI, 0, 0);
-	lapic_sleep(1);
 
     // at this line processor has started spinning
 }
@@ -52,7 +51,7 @@ void setup_processor()
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
 	// give the mark to the BSP to continue waking up processors
-	ready = 1;
+	release_lock(&ready);
 	asm("sti");
 
 	while(1)
@@ -90,18 +89,20 @@ void startup_all_AP()
 
 	// currently the stack for each processor is allocated using the physical memory manager 
     // startup all but the first (BSP) processors
+
+	acquire_lock(&ready);
     for(uint32_t i = 1; i < get_gst()->processor_count; i++)
 	{
 		if(get_gst()->per_cpu_data_base[i].enabled == 0)
 			continue;
-
-		ready = 0;
+		
 		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		            	// mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
 
 		*(uint32_t*)0x800E = phys_mem_alloc_above_1mb() + 4096;				// reserve 4KB stack for each processor. must be identity mapped region
+
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
 
 		// wait for the processor to gracefully boot 
-		while(ready == 0);
+		acquire_lock(&ready);
 	}
 }

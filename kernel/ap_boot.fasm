@@ -27,8 +27,8 @@ start:
 	mov     fs, ax
 	mov     gs, ax
 				
-	mov     ss, ax						; setup a dummy stack 	
-
+	mov     ss, ax						; setup a dummy stack
+    
     lgdt [gdtr]
 
     mov eax, cr0						; enter protected mode

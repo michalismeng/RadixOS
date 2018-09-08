@@ -88,17 +88,28 @@ void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint
 
     reg_writel(base_addr, LAPIC_TIMER_DIV, 0x3);                            // set the divider register to 16
 
-    // prepare pit for one shot mode (1ms period)
-	pit_timer_init(1000, 1);    
+    uint32_t ticks_in_1_ms = 0;
+    uint32_t tries = 5;
 
-    reg_writel(base_addr, LAPIC_TIMER_INIT, 0xFFFFFFFF);                    // set counter and implicitly one-shot mode
+    do 
+    {
+        // prepare pit for one shot mode (1ms period)
+        pit_timer_init(1000, 1);    
 
-    while(pit_read_count() > 0);                                            // sleep for 1ms
+        reg_writel(base_addr, LAPIC_TIMER_INIT, 0xFFFFFFFF);                    // set counter and implicitly one-shot mode
 
-    reg_writel(base_addr, LAPIC_TIMER_LVT, LAPIC_TIMER_DISABLE);
+        while(pit_read_count() > 0);                                            // sleep for 1ms
 
-    uint32_t ticks_in_1_ms = 0xFFFFFFFF - reg_readl(base_addr, LAPIC_TIMER_CUR);
-    printfln("found %u ticks in 1 ms", ticks_in_1_ms);
+        reg_writel(base_addr, LAPIC_TIMER_LVT, LAPIC_TIMER_DISABLE);
+
+        ticks_in_1_ms = 0xFFFFFFFF - reg_readl(base_addr, LAPIC_TIMER_CUR);
+        tries--;
+    } while(ticks_in_1_ms > 200000 && tries > 0);                             // typical value is around 60k => if something went wrong retry. 
+
+    if(tries == 0)
+        PANIC("Could not calibrate local APIC timer");
+
+    printfln("found %u ticks in 1 ms -- tried: %u times", ticks_in_1_ms, 5 - tries);
 
     isr_register(irq_vector, lapic_timer_callback);
 

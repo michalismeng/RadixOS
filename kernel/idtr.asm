@@ -55,7 +55,7 @@ apic_irq%1:
 	push 0				; push a dummy error code value
 	push %2				; push the interrupt number
 
-	jmp irq_common_stub
+	jmp apic_irq_common_stub
 
 %endmacro
 
@@ -133,6 +133,7 @@ APIC_IRQ 15, 79
 
 extern isr_handler
 extern irq_handler
+extern acpi_irq_handler
 
 ; ISR common stub calls the C function isr_handler to route a cpu exception
 isr_common_stub:
@@ -188,3 +189,30 @@ irq_common_stub:
 	add esp, 8
 
 	iretd
+
+; APIC IRQ common stub calls the C function irq_handler to route a hardware interrupt
+apic_irq_common_stub:
+	pushad
+
+	mov ax, ds
+	push eax
+
+	mov ax, 10h
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	;mov gs, ax
+
+	call acpi_irq_handler
+
+	pop eax
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	;mov gs, ax
+
+	popad
+	add esp, 8
+
+	iretd
+

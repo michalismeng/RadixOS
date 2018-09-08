@@ -207,7 +207,6 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	
 	// ----------------------- setup timers -------------------------------------
 
-
 	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
 	lapic_enable(get_gst()->lapic_base);
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
@@ -221,11 +220,10 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	
 	// boot each processor (except for the current one which is already running ...)
 
-
+	ClearScreen();
 	INT_ON;
 	
 	lock = 1;
-	ClearScreen();
 
 	printfln("processor 0 is awake at stack %h", get_stack());
 	startup_all_AP();
@@ -235,7 +233,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	// --------------------------- end: boot all processors ---------------------------
 
 	// initialize process structures
-	process_init();
+	//process_init();
 	
 	while(1)
 	{
