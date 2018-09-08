@@ -1,4 +1,6 @@
 #include <process.h>
+#include <mem_alloc.h>
+#include <string.h>
 
 // private data and functions
 
@@ -8,13 +10,18 @@ PCB* process_slots;
 // thread table
 TCB* thread_slots;
 
-extern virtual_addr_t alloc_perm();
+#define for_all_process_slots(x) \
+PCB* x = &process_slots[0];	\
+for(uint32_t i = 0; i < MAX_PROCESS_SLOTS; i++, x = &process_slots[i])
+
+// public functions
 
 void process_init()
 {
     uint32_t process_pages = ceil_division(MAX_PROCESS_SLOTS * sizeof(PCB), virt_mem_get_page_size());
 	uint32_t thread_pages = ceil_division(MAX_THREAD_SLOTS * sizeof(TCB), virt_mem_get_page_size());
 
+	// allocate enough virtual space right after the kernel for the process and the thread slots
 	process_slots = alloc_perm();
 	for(uint32_t i = 0; i < process_pages - 1; i++)
 		alloc_perm();
@@ -23,12 +30,54 @@ void process_init()
 	for(uint32_t i = 0; i < thread_pages - 1; i++)
 		alloc_perm();
 
+	// mark all processes and threads as empty and ready for use
 	for(uint32_t i = 0; i < MAX_PROCESS_SLOTS; i++)
+	{
 		process_slots[i].flags = PROCESS_SLOT_EMPTY;
+		process_slots[i].pid = -1;
+	}
 			
 	for(uint32_t i = 0; i < MAX_THREAD_SLOTS; i++)
+	{
 		thread_slots[i].flags = THREAD_SLOT_EMPTY;
+		thread_slots[i].tid = -1;
+	}
 }
+
+PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t* name, uint16_t pid)
+{
+	// fail when the slot is already occupied
+	if(!(process_slots[pid].flags & PROCESS_SLOT_EMPTY))
+		return 0;
+
+	PCB* new_pcb = &process_slots[pid];
+
+	new_pcb->pid = pid;
+	new_pcb->flags = PROCESS_NEW;
+	new_pcb->parent = parent;
+	new_pcb->threads = 0;
+	new_pcb->page_dir = pdbr;
+	strcpy_s(&new_pcb->name, 16, name);
+	vm_contract_init(&new_pcb->memory_contract);
+
+	return new_pcb;
+}
+
+PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t* name)
+{
+	// find an empty slot in the process slot table
+	PCB* new_pcb = 0;
+	for(uint32_t i = 0; i < MAX_PROCESS_SLOTS; i++)
+	{
+		new_pcb = process_create_static(parent, pdbr, name, i);
+
+		if(new_pcb)
+			return new_pcb;
+	}
+
+	return 0;
+}
+
 
 // void thread_setup_execution_stack(TCB* t, uint32_t entry)
 // {
@@ -52,30 +101,6 @@ void process_init()
 // 	f->esp = 0;
 // 	f->fs = 0x10;
 // 	f->gs = 0x10;
-// }
-
-// // public functions
-
-// PCB* process_create(PCB* parent, pdirectory_t* pdir, uint32_t low_address, uint32_t high_address)
-// {
-// 	PCB* proc = (PCB*)malloc(sizeof(PCB));
-
-// 	proc->id = ++lastID;
-// 	proc->parent = parent;
-
-// 	if (pdir == 0)
-// 	{
-// 		proc->page_dir = vmmngr_create_address_space();
-// 		vmmngr_map_kernel_space(proc->page_dir);
-// 	}
-// 	else
-// 		proc->page_dir = pdir;
-
-// 	// queue_init(&proc->threads);
-// 	// vm_contract_init(&proc->memory_contract, low_address, high_address);
-// 	// init_local_file_table(&proc->lft, 10);
-
-// 	return proc;
 // }
 
 // // stack top is the top-most exclusive (last_valid + 1) value for stack.

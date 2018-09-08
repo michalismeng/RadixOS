@@ -24,7 +24,7 @@ static uint8_t rtc_read_prog_flag()
 #define rtc_get_mode(h) (h & RTC_PM_BIT)
 
 
-void rtc_read_time(time_t* time)
+void rtc_read_time(ktime_t* time)
 {
     uint8_t second[2];
     uint8_t minute[2];

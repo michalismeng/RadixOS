@@ -14,7 +14,7 @@ typedef struct {
     uint16_t year;
 
     uint8_t weekday;
-} time_t;
+} ktime_t;
 
 static char* days_of_week[] = 
 {

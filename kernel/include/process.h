@@ -53,7 +53,8 @@
 // definitions for process slot flags used to determine the process state.
 typedef enum {
 	PROCESS_RUNNABLE = 0,
-	PROCESS_SLOT_EMPTY
+	PROCESS_SLOT_EMPTY,
+	PROCESS_NEW
 
 } process_flags_t;
 
@@ -107,8 +108,13 @@ typedef struct process_control_block
 // initialize process and thread structures - allocate static memory
 void process_init();
 
+// create a process statically (try to acquire the specified slot in the table)
+PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t* name, uint16_t pid);
 
-PCB* process_create(PCB* parent, pdirectory_t* pdir, uint8_t* name);
+// create a process dynamically (find an empty slot in the table)
+PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t* name);
+
+
 // TCB* thread_create(PCB* parent, uint32_t entry, virtual_addr_t stack_top, uint32_t stack_size, uint32_t priority);
 
 // int32_t thread_get_priority(TCB* thread);

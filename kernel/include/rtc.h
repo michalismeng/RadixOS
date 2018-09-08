@@ -29,6 +29,6 @@ typedef enum {
 } rtc_format_t;
 
 // get the time from the CMOS RTC
-void rtc_read_time(time_t* time);
+void rtc_read_time(ktime_t* time);
 
 #endif

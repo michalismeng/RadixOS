@@ -25,22 +25,6 @@ uint32_t lock = 0;
 
 heap_t* kheap;
 
-// temp procedure to allocate static memory (non-freeable)
-virtual_addr_t alloc_perm()
-{
-	static virtual_addr_t current = 0;
-
-	if(current == 0)		// lame initialization to first free virtual address after the kernel
-		current = (ceil_division(KERNEL_END, virt_mem_get_page_size())) * virt_mem_get_page_size();
-
-	virtual_addr_t temp = current;
-	current += virt_mem_get_page_size();
-
-	if(virt_mem_alloc_page(temp) != ERROR_OK)
-		PANIC("Cannot allocate kernel memory");
-	return temp;
-}
-
 void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 {
 	SetForegroundColor(VGA_COLOR_GREEN);
@@ -233,7 +217,8 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	// --------------------------- end: boot all processors ---------------------------
 
 	// initialize process structures
-	//process_init();
+	process_init();
+	printfln("processes initialized");
 	
 	while(1)
 	{
