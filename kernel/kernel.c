@@ -20,8 +20,8 @@
 #include <vm_contract.h>
 #include <rtc.h>
 #include <tss.h>
-
 #include <process.h>
+
 uint32_t lock = 0;
 
 heap_t* kheap;
@@ -122,8 +122,8 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	else
 		get_gst()->per_cpu_data_base = (per_cpu_data_t*)addr;
 
-	// allocate memory for the gdt entries (5? permanent for the kernel and the user and one for each processor, see below)
-	if((addr = heap_alloc_a(kheap, (GDT_GENERAL_ENTRIES + get_gst()->processor_count) * sizeof(gdt_entry_t), 4)) == 0)
+	// allocate memory for the gdt entries (5? permanent for the kernel and the user and two for each processor, see below)
+	if((addr = heap_alloc_a(kheap, (GDT_GENERAL_ENTRIES + 2 * get_gst()->processor_count) * sizeof(gdt_entry_t), 4)) == 0)
 		PANIC("gdt entries heap allocation failed");
 	else
 		get_gst()->gdt_entries = (gdt_entry_t*)addr;
@@ -147,36 +147,30 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	gdt_set_gate(get_gst()->gdt_entries, 1, 0, 0xFFFFFFFF, GDT_RW | GDT_EX, GDT_SZ | GDT_GRAN);
 	gdt_set_gate(get_gst()->gdt_entries, 2, 0, 0xFFFFFFFF, GDT_RW, GDT_SZ | GDT_GRAN);				                // code and data entries are common for all processors
 
-	gdt_set_gate(get_gst()->gdt_entries, 3, 0, 0xFFFFFFFF, GDT_RW | GDT_EX | GDT_USER, GDT_SZ | GDT_GRAN);		    // these are here for the userspace (not yet implemented)
+	gdt_set_gate(get_gst()->gdt_entries, 3, 0, 0xFFFFFFFF, GDT_RW | GDT_EX | GDT_USER, GDT_SZ | GDT_GRAN);          // user space code and data entries
 	gdt_set_gate(get_gst()->gdt_entries, 4, 0, 0xFFFFFFFF, GDT_RW | GDT_USER, GDT_SZ | GDT_GRAN);
 
 
-	// setup a gdt entry for local cpu data (the gs segment will point to these) for each processor
+	// setup a gdt entry for local cpu data (the gs segment will point to these) and tss for each processor
 	for(uint32_t i = 0; i < get_gst()->processor_count; i++)
 	{
 		uint32_t base = (uint32_t)&get_gst()->per_cpu_data_base[i];
-		gdt_set_gate(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + i, base, sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
+        tss_entry_t* tss = &get_gst()->per_cpu_data_base[i].tss_entry;
+
+		gdt_set_gate(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + 2 * i, base, base + sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
+        tss_init_entry(get_gst()->gdt_entries, tss, GDT_GENERAL_ENTRIES + 2 * i + 1);
 	}
 
-	// intstall the new gdt structure
-	gdtr_install(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + get_gst()->processor_count, &get_gst()->gdtr);
+	// intstall the new gdt structure (required before installing tss entries!)
+	gdtr_install(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + 2 * get_gst()->processor_count, &get_gst()->gdtr);
 
-    tss_entry_t tss;
-
-    tss_init_entry(get_gst()->gdt_entries, &tss, 5);
-    tss_install(5);
-
-    tss_set_kernel_stack(&tss, get_stack());
-
-    gdt_print_gate(get_gst()->gdt_entries, 5);
-	gdt_print_gate(get_gst()->gdt_entries, 6);
-
+    // install the tss entry of the BSP
+    tss_install(GDT_GENERAL_ENTRIES + 1);
 
 	printfln("gdts are set");
 
 	// --------------------------- end: setup GDTs---------------------------
-
-	// ----------------------- test vm contract -------------------------------------
+#pragma region ----------------------- test vm contract -------------------------------------
 	// ClearScreen();
 
 	// vm_contract_t mem_contract;
@@ -196,8 +190,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	// PANIC("TEST END...");
 
-	// ----------------------- end: test vm contract -------------------------------------
-
+#pragma endregion
 	
 	// ----------------------- setup timers -------------------------------------
 
@@ -216,24 +209,19 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	ClearScreen();
 
-    extern int do_user();
+    // extern int do_user();
 
-    virt_mem_map_page(virt_mem_get_current_address_space(), do_user, do_user, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-    virt_mem_map_page(virt_mem_get_current_address_space(), 0x700000, 0x700000, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-    pd_entry* e = virt_mem_get_page_directory_entry(virt_mem_get_current_directory(), do_user);
-    pd_entry_add_attrib(e, I86_PDE_USER);
+    // virt_mem_map_page(virt_mem_get_current_address_space(), do_user, do_user, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
+    // virt_mem_map_page(virt_mem_get_current_address_space(), 0x700000, 0x700000, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
+    // pd_entry* e = virt_mem_get_page_directory_entry(virt_mem_get_current_directory(), do_user);
+    // pd_entry_add_attrib(e, I86_PDE_USER);
 
-    printfln("is mapped: %u", virt_mem_is_page_present(do_user));
-    // do_user();
-    _switch_to_user_mode();
+    // printfln("is mapped: %u", virt_mem_is_page_present(do_user));
+    // // do_user();
+    // _switch_to_user_mode();
 	INT_ON;
 
-    PANIC("here");
-	
 	lock = 1;
-
-    // set the kernel stack -- one per cpu used by user threads
-    per_cpu_write(PER_CPU_OFFSET(k_stack), ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size());
 
 	printfln("processor 0 is awake at stack %h", get_stack());
 	startup_all_AP();

@@ -2,6 +2,19 @@ bits 32
 
 section .text
 
+global get_ds
+global get_gs
+
+get_ds:
+    xor ax, ax
+    mov ax, ds
+    ret
+
+get_gs:
+    xor ax, ax
+    mov ax, gs
+    ret
+
 global _flushIDT
 
 _flushIDT:
@@ -140,8 +153,10 @@ isr_common_stub:
 				; already pushed error_code, interrupt no
 	pushad		; push eax, ecx, edx, ebx, esp, ebp, esi, edi
 
-	mov ax, ds
-	push eax		; push "ds"
+	push ds		; push all segment registers
+    push es
+    push fs
+    push gs
 
 	mov ax, 10h
 	mov ds, ax
@@ -151,12 +166,10 @@ isr_common_stub:
 
 	call isr_handler
 	
-	pop eax
-
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	;mov gs, ax
+	pop gs
+    pop fs
+    pop es
+    pop ds
 
 	popad
 	add esp, 8
@@ -194,8 +207,10 @@ irq_common_stub:
 apic_irq_common_stub:
 	pushad
 
-	mov ax, ds
-	push eax
+	push ds		; push all segment registers
+    push es
+    push fs
+    push gs
 
 	mov ax, 10h
 	mov ds, ax
@@ -205,11 +220,10 @@ apic_irq_common_stub:
 
 	call acpi_irq_handler
 
-	pop eax
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	;mov gs, ax
+    pop gs
+    pop fs
+    pop es
+    pop ds
 
 	popad
 	add esp, 8

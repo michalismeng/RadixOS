@@ -43,7 +43,6 @@ void setup_processor()
 	idtr_install(&get_gst()->idtr);
 
 	uint32_t id = per_cpu_read(PER_CPU_OFFSET(id));
-    per_cpu_write(PER_CPU_OFFSET(k_stack), ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size());
     printfln("processor %u is awake at stack %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
 
     // void final_processor_setup();
@@ -97,7 +96,7 @@ void startup_all_AP()
 		if(get_gst()->per_cpu_data_base[i].enabled == 0)
 			continue;
 		
-		*(uint16_t*)0x800C = i + GDT_GENERAL_ENTRIES;		            	// mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
+		*(uint16_t*)0x800C = 2 * i + GDT_GENERAL_ENTRIES;		            // mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
 
 		*(uint32_t*)0x800E = phys_mem_alloc_above_1mb() + 4096;				// reserve 4KB stack for each processor. must be identity mapped region
 

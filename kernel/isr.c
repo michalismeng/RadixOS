@@ -8,9 +8,17 @@ isr_t isr_handlers[ISR_HANDLERS];
 
 int32_t* syscall_handler(iregisters_t* regs)
 {
-    printfln("eax = %u", regs->eax);
-    printfln("ebx = %u", regs->ebx);
-    printfln("ecx = %u", regs->ecx);
+    printfln("user_gs = %u", regs->eax);
+    printfln("service number = %u", regs->ebx);
+    printfln("user stack = %h", regs->ecx);
+    printfln("kernel stack = %h", get_stack());
+
+    uint32_t ds_seg = get_ds();
+    uint32_t gs_seg = get_gs();
+
+    printfln("kernel ds = %h, gs = %h", ds_seg, gs_seg);
+    asm ("mov $15, %eax; mov %eax, %gs");
+    // printfln("cpu id: %u", per_cpu_read(PER_CPU_OFFSET(lapic_count)));
 }
 
 void isr_init()

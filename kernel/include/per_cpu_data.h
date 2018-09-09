@@ -2,6 +2,7 @@
 #define PER_CPU_DATA_H_23022018
 
 #include <types.h>
+#include <tss.h>
 
 extern void _set_cpu_gs(uint32_t gdt_offset);
 
@@ -17,7 +18,7 @@ typedef volatile struct per_cpu_data_struct_t
     uint32_t lapic_period;      // period of the lapic timer
     uint32_t lapic_count;       // count of the lapic timer
 
-    uint32_t k_stack;           // kernel stack. One stack is used per processor
+    tss_entry_t tss_entry;
 
     // uint32_t pad[32];
 

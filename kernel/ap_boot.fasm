@@ -53,6 +53,10 @@ bits 32
         mul cx
         mov gs, ax                      ; fix gs to point to our core-specific data
 
+        add ax, 8
+        or ax, 3
+        ltr ax                          ; install the tss entry of each AP
+
         mov eax, 0x80000                ; load the dummy page directory created when the BSP booted
         mov cr3, eax
 

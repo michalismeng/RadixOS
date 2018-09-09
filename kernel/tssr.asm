@@ -18,7 +18,7 @@ _switch_to_user_mode:
     mov ds, ax
     mov es, ax
     mov fs, ax
-    ; mov gs, ax
+    mov gs, ax
 
     mov eax, 0x700000
     add eax, 4096

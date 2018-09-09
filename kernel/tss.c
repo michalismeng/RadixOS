@@ -19,8 +19,8 @@ void tss_init_entry(gdt_entry_t* gdt_base, tss_entry_t* tss, uint16_t num)
     tss->ss0 = 0x10;
 
     tss->cs = 0x0B;
-    tss->ss = tss->ds = tss->es = tss->fs = 0x13;
-    // TODO: Proper care for the GS selector
+    tss->ss = tss->ds = tss->es = tss->fs = tss->gs = 0x13;
+    // TODO: Proper care for the GS selector + Why do we need these ????
 }
 
 void tss_install(uint16_t num)
