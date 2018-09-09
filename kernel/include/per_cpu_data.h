@@ -17,7 +17,9 @@ typedef volatile struct per_cpu_data_struct_t
     uint32_t lapic_period;      // period of the lapic timer
     uint32_t lapic_count;       // count of the lapic timer
 
-    uint32_t pad[32];
+    uint32_t k_stack;           // kernel stack. One stack is used per processor
+
+    // uint32_t pad[32];
 
     // TODO: add scheduler queues and other cpu local stuff...
 

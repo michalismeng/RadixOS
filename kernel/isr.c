@@ -6,10 +6,19 @@
 
 isr_t isr_handlers[ISR_HANDLERS];
 
+int32_t* syscall_handler(iregisters_t* regs)
+{
+    printfln("eax = %u", regs->eax);
+    printfln("ebx = %u", regs->ebx);
+    printfln("ecx = %u", regs->ecx);
+}
+
 void isr_init()
 {
 	printfln("isr handlers: %h", isr_handlers);
 	memset(isr_handlers, 0, ISR_HANDLERS * sizeof(isr_t));
+
+    isr_register(0x80, syscall_handler);
 }
 
 void isr_handler(iregisters_t regs)

@@ -43,6 +43,7 @@ void setup_processor()
 	idtr_install(&get_gst()->idtr);
 
 	uint32_t id = per_cpu_read(PER_CPU_OFFSET(id));
+    per_cpu_write(PER_CPU_OFFSET(k_stack), ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size());
     printfln("processor %u is awake at stack %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
 
     // void final_processor_setup();

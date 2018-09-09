@@ -21,6 +21,16 @@ SECTIONS
 		objs/kernel_init.o(.bss)
 	}
 
+    /* Test entry for user mode programs */
+
+    . = 0x600000;
+
+    .user BLOCK(4K) : ALIGN(4K)
+    {
+        objs/user.o(.text)
+        objs/user.o(.data)
+    }
+
 	__kernel_init_end = .;
 
 	/* Switch to virtual addresses */

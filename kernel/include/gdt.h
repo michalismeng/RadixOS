@@ -4,7 +4,7 @@
 #include <types.h>
 
 #define GDT_BASE_DUMMY 			gdt_entries			// dummy gdt base for initial kernel setup (may be moved to boot.s)
-#define GDT_GENERAL_ENTRIES 	5					// number of entries for the general gdt (null entry, 2 kernel, 2 user)  TODO: add TSS
+#define GDT_GENERAL_ENTRIES 	6					// number of entries for the general gdt (null entry, 2 kernel, 2 user, 1 TSS)
 
 enum GDT_FLAGS
 {
