@@ -21,6 +21,7 @@
 #include <rtc.h>
 #include <tss.h>
 #include <process.h>
+#include <mem_alloc.h>
 
 uint32_t lock = 0;
 
@@ -95,7 +96,13 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	physical_addr pdir = virt_mem_init(page_dir);
 	get_gst()->BSP_dir = pdir;
-	ClearScreen();
+	
+    ClearScreen();
+
+    // relocate the stack to a safe-ish location
+    asm ("movl %0, %%esp"::"r"(phys_mem_alloc_above_1mb() + 4096):"%esp");
+	printfln("current stack: %h", get_stack());
+
 
 	// allocate memory for the acpi resources (gdt entries are also allocated here so this heap must be identity mapped)
 	kheap = heap_create(phys_mem_alloc_above_1mb(), 4096);
@@ -123,7 +130,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 		get_gst()->per_cpu_data_base = (per_cpu_data_t*)addr;
 
 	// allocate memory for the gdt entries (5? permanent for the kernel and the user and two for each processor, see below)
-	if((addr = heap_alloc_a(kheap, (GDT_GENERAL_ENTRIES + 2 * get_gst()->processor_count) * sizeof(gdt_entry_t), 4)) == 0)
+	if((addr = heap_alloc_a(kheap, (GDT_GENERAL_ENTRIES + GDT_ENTRIES_PER_CPU * get_gst()->processor_count) * sizeof(gdt_entry_t), 4)) == 0)
 		PANIC("gdt entries heap allocation failed");
 	else
 		get_gst()->gdt_entries = (gdt_entry_t*)addr;
@@ -131,10 +138,6 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	// ensure i/o apic count == 1
 	if(get_gst()->ioapic_count != 1)
 		PANIC("ioapic count != 1. System not ready for this case");
-
-	// relocate the stack to a safe-ish location
-    asm ("movl %0, %%esp"::"r"(phys_mem_alloc_above_1mb() + 4096):"%esp");
-	printfln("current stack: %h", get_stack());
 
 	// using the memory previously allocated, fill in the acpi data structures (mainly per_cpu_data)
 	if(rsdp_parse(rsdp) != 0)
@@ -157,15 +160,16 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 		uint32_t base = (uint32_t)&get_gst()->per_cpu_data_base[i];
         tss_entry_t* tss = &get_gst()->per_cpu_data_base[i].tss_entry;
 
-		gdt_set_gate(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + 2 * i, base, base + sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);
-        tss_init_entry(get_gst()->gdt_entries, tss, GDT_GENERAL_ENTRIES + 2 * i + 1);
+		gdt_set_gate(get_gst()->gdt_entries, GDT_SS_ENTRY(i), 0, 0xFFFFFFFF, GDT_RW, GDT_SZ);                               // ss entry
+		gdt_set_gate(get_gst()->gdt_entries, GDT_GS_ENTRY(i), base, base + sizeof(per_cpu_data_t), GDT_RW, GDT_SZ);         // gs entry
+        tss_init_entry(get_gst()->gdt_entries, tss, GDT_TSS_ENTRY(i));                                                      // tss entry
 	}
 
 	// intstall the new gdt structure (required before installing tss entries!)
-	gdtr_install(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + 2 * get_gst()->processor_count, &get_gst()->gdtr);
+	gdtr_install(get_gst()->gdt_entries, GDT_GENERAL_ENTRIES + GDT_ENTRIES_PER_CPU * get_gst()->processor_count, &get_gst()->gdtr);
 
     // install the tss entry of the BSP
-    tss_install(GDT_GENERAL_ENTRIES + 1);
+    tss_install(GDT_TSS_ENTRY(0));
 
 	printfln("gdts are set");
 
@@ -194,7 +198,8 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	
 	// ----------------------- setup timers -------------------------------------
 
-	_set_cpu_gs(GDT_GENERAL_ENTRIES * 8);
+	_set_cpu_gs(GDT_GS_ENTRY(0) * 8);
+	_set_cpu_ss(GDT_SS_ENTRY(0) * 8);
 	lapic_enable(get_gst()->lapic_base);
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
@@ -209,6 +214,9 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	ClearScreen();
 
+    // tss_set_kernel_stack(&get_cpu_storage(per_cpu_read(PER_CPU_OFFSET(id)))->tss_entry, 4096, GDT_SS_ENTRY(0) * 8);
+    // tss_set_kernel_stack(&get_cpu_storage(per_cpu_read(PER_CPU_OFFSET(id)))->tss_entry, alloc_perm() + 4096, GDT_SS_ENTRY(0) * 8);
+
     // extern int do_user();
 
     // virt_mem_map_page(virt_mem_get_current_address_space(), do_user, do_user, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
@@ -217,8 +225,10 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
     // pd_entry_add_attrib(e, I86_PDE_USER);
 
     // printfln("is mapped: %u", virt_mem_is_page_present(do_user));
-    // // do_user();
     // _switch_to_user_mode();
+
+    // PANIC("");
+
 	INT_ON;
 
 	lock = 1;

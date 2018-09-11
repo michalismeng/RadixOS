@@ -2,10 +2,12 @@ bits 32
 section .text
 
 global _set_cpu_gs
+global _set_cpu_ss
 global _per_cpu_read
 global _per_cpu_write 
 
 global get_stack
+
 get_stack:
     mov eax, esp
     ret
@@ -15,6 +17,11 @@ get_stack:
 _set_cpu_gs:
     mov eax, [esp + 4]      
     mov gs, ax
+    ret
+
+_set_cpu_ss:
+    mov eax, [esp + 4]      
+    mov ss, ax
     ret
 
 ; reads a cpu local variable at a given offset

@@ -11,7 +11,7 @@ get_ds:
     ret
 
 get_gs:
-    xor ax, ax
+    xor eax, eax
     mov ax, gs
     ret
 
@@ -162,10 +162,13 @@ isr_common_stub:
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	;mov gs, ax			TODO: Consider saving gs and restoring it after the interrupt
+
+    mov ax, ss  
+    add ax, 8   
+    mov gs, ax      ; the GS segment is the next entry in the GDT
 
 	call isr_handler
-	
+
 	pop gs
     pop fs
     pop es
@@ -175,7 +178,6 @@ isr_common_stub:
 	add esp, 8
 
 	iret        ; pop CS, EIP, EFLAGS, SS, and ESP
-
 
 ; IRQ common stub calls the C function irq_handler to route a hardware interrupt
 irq_common_stub:
@@ -188,7 +190,6 @@ irq_common_stub:
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	;mov gs, ax
 
 	call irq_handler
 
@@ -216,7 +217,10 @@ apic_irq_common_stub:
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	;mov gs, ax
+	
+    mov ax, ss
+    add ax, 8
+    mov gs, ax
 
 	call acpi_irq_handler
 

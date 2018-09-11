@@ -5,6 +5,7 @@
 #include <tss.h>
 
 extern void _set_cpu_gs(uint32_t gdt_offset);
+extern void _set_cpu_ss(uint32_t gdt_offset);
 
 // return the offset of a field in the cpu data sturcture
 #define PER_CPU_OFFSET(field) offsetof(per_cpu_data_t, field)

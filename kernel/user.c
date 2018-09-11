@@ -1,5 +1,5 @@
 // user mode test program
-// This is a TEST file
+// ! This is a TEST file
 
 void call_service(int num)
 {

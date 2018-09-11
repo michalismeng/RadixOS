@@ -43,7 +43,7 @@ typedef struct tss_entry
 
 void tss_init_entry(gdt_entry_t* gdt_base, tss_entry_t* tss, uint16_t num);
 void tss_install(uint16_t num);
-void tss_set_kernel_stack(tss_entry_t* tss, uint32_t stack_top);
+void tss_set_kernel_stack(tss_entry_t* tss, uint32_t stack_top, uint32_t ss);
 
 void _flushTSS(uint32_t selector);
 

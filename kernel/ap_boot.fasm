@@ -16,7 +16,7 @@ jmp start
 c_setup_proc:   dd 0						; c code function that continues the setup
 gdtr:           dw 0						; common gdt
                 dd 0		
-gs_entry:       dw 0                        ; entry in the gdt that gs should point to
+ss_entry:       dw 0                        ; entry in the gdt that ss should point to
 stack:          dd 0                        ; processor boot stack
 
 start:
@@ -48,10 +48,13 @@ bits 32
 
         mov esp, dword[stack]
 
-        mov ax, word [gs_entry]
+        mov ax, word [ss_entry]
         mov cx, 8
         mul cx
-        mov gs, ax                      ; fix gs to point to our core-specific data
+        mov ss, ax                      ; fix ss to point to our core-specific stack (used to identify processor after interrupt)
+
+        add ax, 8
+        mov gs, ax                      ; setup gs to point to cpu-specific data
 
         add ax, 8
         or ax, 3

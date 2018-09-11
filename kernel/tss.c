@@ -16,11 +16,10 @@ void tss_init_entry(gdt_entry_t* gdt_base, tss_entry_t* tss, uint16_t num)
 
     memset(tss, 0, sizeof(tss_entry_t));
 
-    tss->ss0 = 0x10;
-
     tss->cs = 0x0B;
     tss->ss = tss->ds = tss->es = tss->fs = tss->gs = 0x13;
-    // TODO: Proper care for the GS selector + Why do we need these ????
+    // TODO: Proper care for the GS selector
+    // ? Why do we need these ????
 }
 
 void tss_install(uint16_t num)
@@ -28,7 +27,8 @@ void tss_install(uint16_t num)
     _flushTSS(num * 8 + 3);
 }
 
-void tss_set_kernel_stack(tss_entry_t* tss, uint32_t stack_top)
+void tss_set_kernel_stack(tss_entry_t* tss, uint32_t stack_top, uint32_t ss)
 {
+    tss->ss0 = ss;
     tss->esp0 = stack_top;
 }

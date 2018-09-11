@@ -29,7 +29,7 @@ void processor_startup(uint32_t lapic_id, physical_addr exec_base)
 
 	// send the STARTUP interrupt and wait for 1ms
 	lapic_send_ipi(get_gst()->lapic_base, lapic_id, exec_base >> 12, LAPIC_DELIVERY_SIPI, 0, 0);
-
+    lapic_sleep(1);
     // at this line processor has started spinning
 }
 
@@ -96,8 +96,7 @@ void startup_all_AP()
 		if(get_gst()->per_cpu_data_base[i].enabled == 0)
 			continue;
 		
-		*(uint16_t*)0x800C = 2 * i + GDT_GENERAL_ENTRIES;		            // mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
-
+		*(uint16_t*)0x800C = GDT_SS_ENTRY(i);                               // mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
 		*(uint32_t*)0x800E = phys_mem_alloc_above_1mb() + 4096;				// reserve 4KB stack for each processor. must be identity mapped region
 
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);

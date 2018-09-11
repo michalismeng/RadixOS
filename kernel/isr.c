@@ -17,8 +17,7 @@ int32_t* syscall_handler(iregisters_t* regs)
     uint32_t gs_seg = get_gs();
 
     printfln("kernel ds = %h, gs = %h", ds_seg, gs_seg);
-    asm ("mov $15, %eax; mov %eax, %gs");
-    // printfln("cpu id: %u", per_cpu_read(PER_CPU_OFFSET(lapic_count)));
+    printfln("cpu id: %u", per_cpu_read(PER_CPU_OFFSET(enabled)));
 }
 
 void isr_init()
@@ -60,8 +59,8 @@ void acpi_irq_handler(iregisters_t regs)
 		isr_t handler = isr_handlers[regs.int_no];
 		handler(&regs);
 	}
-	// else
-	// 	printfln("Hardware interrupt: %u", regs.int_no);
+	else
+		printfln("Hardware interrupt: %u", regs.int_no);
 
 	lapic_send_eoi(get_gst()->lapic_base);
 }

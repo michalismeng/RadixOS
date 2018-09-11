@@ -5,6 +5,12 @@
 
 #define GDT_BASE_DUMMY 			gdt_entries			// dummy gdt base for initial kernel setup (may be moved to boot.s)
 #define GDT_GENERAL_ENTRIES 	5					// number of entries for the general gdt (null entry, 2 kernel, 2 user, 1 TSS)
+#define GDT_ENTRIES_PER_CPU     3                   // number of gdt entries per cpu core (ss - gs - tss)
+
+
+#define GDT_SS_ENTRY(id) ( GDT_GENERAL_ENTRIES + GDT_ENTRIES_PER_CPU * id )
+#define GDT_GS_ENTRY(id) ( GDT_GENERAL_ENTRIES + GDT_ENTRIES_PER_CPU * id + 1 )
+#define GDT_TSS_ENTRY(id)( GDT_GENERAL_ENTRIES + GDT_ENTRIES_PER_CPU * id + 2 )
 
 enum GDT_FLAGS
 {
