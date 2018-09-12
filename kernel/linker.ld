@@ -21,6 +21,8 @@ SECTIONS
 		objs/kernel_init.o(.bss)
 	}
 
+	__kernel_init_end = .;
+
     /* Test entry for user mode programs */
 
     . = 0x600000;
@@ -30,8 +32,6 @@ SECTIONS
         objs/user.o(.text)
         objs/user.o(.data)
     }
-
-	__kernel_init_end = .;
 
 	/* Switch to virtual addresses */
 

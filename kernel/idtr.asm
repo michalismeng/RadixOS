@@ -4,6 +4,9 @@ section .text
 
 global get_ds
 global get_gs
+global get_fs
+global get_flags
+global get_eip
 
 get_ds:
     xor ax, ax
@@ -13,6 +16,20 @@ get_ds:
 get_gs:
     xor eax, eax
     mov ax, gs
+    ret
+
+get_fs:
+    xor eax, eax
+    mov ax, fs
+    ret
+
+get_flags:
+    pushfd
+    pop eax
+    ret
+
+get_eip:
+    mov eax, [esp]
     ret
 
 global _flushIDT
@@ -167,7 +184,11 @@ isr_common_stub:
     add ax, 8   
     mov gs, ax      ; the GS segment is the next entry in the GDT
 
+    push esp
+
 	call isr_handler
+
+    add esp, 4
 
 	pop gs
     pop fs
@@ -206,7 +227,8 @@ irq_common_stub:
 
 ; APIC IRQ common stub calls the C function irq_handler to route a hardware interrupt
 apic_irq_common_stub:
-	pushad
+
+    pushad
 
 	push ds		; push all segment registers
     push es
@@ -222,7 +244,11 @@ apic_irq_common_stub:
     add ax, 8
     mov gs, ax
 
+    push esp
+
 	call acpi_irq_handler
+
+    add esp, 4
 
     pop gs
     pop fs

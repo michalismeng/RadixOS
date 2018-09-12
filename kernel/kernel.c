@@ -28,7 +28,7 @@ uint32_t lock = 0;
 heap_t* kheap;
 
 // ! this is a test thread -- remove this
-void test_thread()
+void test_thread_func()
 {
     printfln("Hello!!");
     for(;;);
@@ -224,54 +224,53 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	ClearScreen();
 
-    #pragma region ----------------------- test user mode -------------------------------------
-
-    // tss_set_kernel_stack(&get_cpu_storage(per_cpu_read(PER_CPU_OFFSET(id)))->tss_entry, alloc_perm() + 4096, GDT_SS_ENTRY(0) * 8);
-
-    // extern int do_user();
-
-    // virt_mem_map_page(virt_mem_get_current_address_space(), do_user, do_user, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-    // virt_mem_map_page(virt_mem_get_current_address_space(), 0x700000, 0x700000, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-    // pd_entry* e = virt_mem_get_page_directory_entry(virt_mem_get_current_directory(), do_user);
-    // pd_entry_add_attrib(e, I86_PDE_USER);
-
-    // printfln("is mapped: %u", virt_mem_is_page_present(do_user));
-    // _switch_to_user_mode();
-
-    #pragma endregion
-
 	INT_ON;
 
 	lock = 1;
 
 	printfln("processor 0 is awake at stack %h", get_stack());
-    // TODO: uncomment this line to start other processors
+    // ! uncomment this line to start other processors
 	// startup_all_AP();
 
 	printfln("******** all processors booted ********");
 	lock = 0;
+
 	// --------------------------- end: boot all processors ---------------------------
 
 	// initialize process structures
 	process_init();
 	printfln("processes initialized");
 
-    // test thread scheduling
-
+    // ! ------------------------ test thread running with usermode ---------------------
+    ClearScreen();
     virtual_addr_t stack = alloc_perm();
-    printfln("my stack at: %h", stack + 4096);
-    asm ("movl %0, %%esp"::"r"(stack + 4096):"%esp");
+    asm ("movl %0, %%esp"::"r"(stack + 4096 - sizeof(trap_frame_t)):"%esp");
 
-    TCB* test_thread = thread_create(0, 0x8BADB002, stack + 4096, 0);
-    trap_frame_t* test_frame = stack + 4096 - sizeof(trap_frame_t) - 16;
+    tss_set_kernel_stack(&get_cpu_storage(per_cpu_read(PER_CPU_OFFSET(id)))->tss_entry, stack + 4096, GDT_SS_ENTRY(0) * 8);
+
+    extern int do_user();
+
+    virt_mem_map_page(virt_mem_get_current_address_space(), (int)do_user & (~0xfff), (int)do_user & (~0xfff), VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
+    virt_mem_map_page(virt_mem_get_current_address_space(), 0x700000, 0x700000, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
+    pd_entry* e = virt_mem_get_page_directory_entry(virt_mem_get_current_directory(), do_user);
+    pd_entry_add_attrib(e, I86_PDE_USER);
+
+    // printfln("is mapped: %u", virt_mem_is_page_present(do_user));
+    // _switch_to_user_mode();
+
+    TCB* test_thread = thread_create(0, do_user, 0x700000 + 4096, 0);
 
     scheduler_init(&get_cpu_storage(0)->scheduler);
     scheduler_add_ready(&get_cpu_storage(0)->scheduler, test_thread);
 
-    trap_frame_print(test_frame);
+    scheduler_run_thread(&get_cpu_storage(0)->scheduler);
+    trap_frame_print(stack + 4096 - sizeof(trap_frame_t));
+    printfln("----------------------------------");
+    
+    asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(stack + 4096 - sizeof(trap_frame_t)):"%esp");
 
-    PANIC("END");
-	
+    PANIC("Should not be here");
+
 	while(1)
 	{
 		acquire_lock(&lock);

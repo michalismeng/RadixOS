@@ -57,7 +57,7 @@ void scheduler_stop_current_thread(thread_sched_t* scheduler)
     virtual_addr_t stack_top = ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size();
 
     // copy register contents to the trap frame of the executing thread
-    memcpy(&scheduler->current_thread->frame, (void*)(stack_top - sizeof(trap_frame_t) - 16), sizeof(trap_frame_t));
+    memcpy(&scheduler->current_thread->frame, (void*)(stack_top - sizeof(trap_frame_t)), sizeof(trap_frame_t));
 
     // send the executing thread to the back of the queue
     scheduler_add_ready(scheduler, scheduler->current_thread);
@@ -66,6 +66,7 @@ void scheduler_stop_current_thread(thread_sched_t* scheduler)
 void scheduler_run_thread(thread_sched_t* scheduler)
 {
     virtual_addr_t stack_top = ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size();
+    printfln("stack top: %h", stack_top);
 
     // pick a new thread to schedule
     uint32_t q_index = scheduler_get_first_non_empty(scheduler);
@@ -76,7 +77,8 @@ void scheduler_run_thread(thread_sched_t* scheduler)
     scheduler->current_thread = to_run;
 
     // copy register contents from the new thread back to the stack
-    memcpy((void*)(stack_top - sizeof(trap_frame_t) - 16), (void*)&to_run->frame, sizeof(trap_frame_t));
+    printfln("write at: %h", stack_top - sizeof(trap_frame_t));
+    memcpy((void*)(stack_top - sizeof(trap_frame_t)), (void*)&to_run->frame, sizeof(trap_frame_t));
 }
 
 // TCB* current_thread = 0;

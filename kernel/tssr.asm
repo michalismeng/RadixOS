@@ -24,8 +24,8 @@ _switch_to_user_mode:
     mov eax, 0x700000
     add eax, 4096
     push 0x23           ; user mode SS
-    push eax
-    pushfd
+    push eax            ; 
+    pushfd              ; flags
     pop eax
     ; or eax, 0x200       ; set the IF bit -- enable this
     push eax
