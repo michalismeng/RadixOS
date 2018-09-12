@@ -61,7 +61,8 @@ typedef enum {
 // definitions for thread slot flags used to determine the thread state.
 typedef enum {
 	THREAD_RUNNABLE = 0,
-	THREAD_SLOT_EMPTY
+	THREAD_SLOT_EMPTY,
+    THREAD_NEW
 
 } thread_flags_t;
 
@@ -71,13 +72,15 @@ typedef struct process_control_block PCB;
 typedef struct thread_control_block
 {
 	thread_flags_t flags;					// thread flags
-	trap_frame_t* frame;					// frame of registers, used to continue right where the thread left
+	trap_frame_t frame;					    // frame of registers, used to continue right where the thread left
 	uint16_t tid;							// thread unique id that correspons to the thread's index in the table
 
 	PCB* parent;							// parent process that created this thread.
 
-	struct thread_control_block* prev;		// previous ready thread in the scheduling queue
-	struct thread_control_block* next;		// next ready thread in the scheduling queue
+    uint32_t priotity;                      // thread scheduling priority
+
+	struct thread_control_block* prev;		// previous thread in the scheduling queue (ready - sleep - block)
+	struct thread_control_block* next;		// next thread in the scheduling queue
 
 	// uint32_t sleep_time;							// time in millis of thread sleep. Used for the sleep function
 	// int32_t plus_priority;						// priority gained due to different factors such as waiting in the queues
@@ -96,12 +99,6 @@ typedef struct process_control_block
 
 	vm_contract_t memory_contract;					// process memory map
 
-	// struct process_control_block* next_ready;		// link to next ready process in the ready queue
-	// struct process_control_block* prev_ready;		// link to previous ready process in the ready queue
-
-
-	// local_file_table lft;					// local open file table
-
 	TCB* threads;									// pointer to list of child threads of the process
 }PCB;
 
@@ -113,6 +110,12 @@ PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t* name, uint1
 
 // create a process dynamically (find an empty slot in the table)
 PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t* name);
+
+// create a thread statically (try to acquire the specified slot in the table)
+TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid);
+
+// create a thread dynamically (find an empty slot in the table)
+TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority);
 
 
 // TCB* thread_create(PCB* parent, uint32_t entry, virtual_addr_t stack_top, uint32_t stack_size, uint32_t priority);

@@ -12,6 +12,7 @@ _flushTSS:
 
 extern do_user
 
+; this is a test function
 _switch_to_user_mode:
     cli                 ; interrupts will be re-enabled using iret
     mov ax, 0x23

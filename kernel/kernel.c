@@ -27,6 +27,13 @@ uint32_t lock = 0;
 
 heap_t* kheap;
 
+// ! this is a test thread -- remove this
+void test_thread()
+{
+    printfln("Hello!!");
+    for(;;);
+}
+
 void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 {
 	SetForegroundColor(VGA_COLOR_GREEN);
@@ -196,14 +203,17 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 #pragma endregion
 	
-	// ----------------------- setup timers -------------------------------------
+    // --------------------------- setup segments -------------------------------
 
-	_set_cpu_gs(GDT_GS_ENTRY(0) * 8);
+    _set_cpu_gs(GDT_GS_ENTRY(0) * 8);
 	_set_cpu_ss(GDT_SS_ENTRY(0) * 8);
+
+    // --------------------------- end: setup segments --------------------------
+
+	// ----------------------- setup timers -------------------------------------
 	lapic_enable(get_gst()->lapic_base);
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
-	// read computer time
 	rtc_read_time(&get_gst()->current_time);
 
 	// ----------------------- end: setup timers --------------------------------
@@ -214,7 +224,8 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	ClearScreen();
 
-    // tss_set_kernel_stack(&get_cpu_storage(per_cpu_read(PER_CPU_OFFSET(id)))->tss_entry, 4096, GDT_SS_ENTRY(0) * 8);
+    #pragma region ----------------------- test user mode -------------------------------------
+
     // tss_set_kernel_stack(&get_cpu_storage(per_cpu_read(PER_CPU_OFFSET(id)))->tss_entry, alloc_perm() + 4096, GDT_SS_ENTRY(0) * 8);
 
     // extern int do_user();
@@ -227,14 +238,15 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
     // printfln("is mapped: %u", virt_mem_is_page_present(do_user));
     // _switch_to_user_mode();
 
-    // PANIC("");
+    #pragma endregion
 
 	INT_ON;
 
 	lock = 1;
 
 	printfln("processor 0 is awake at stack %h", get_stack());
-	startup_all_AP();
+    // TODO: uncomment this line to start other processors
+	// startup_all_AP();
 
 	printfln("******** all processors booted ********");
 	lock = 0;
@@ -243,6 +255,22 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	// initialize process structures
 	process_init();
 	printfln("processes initialized");
+
+    // test thread scheduling
+
+    virtual_addr_t stack = alloc_perm();
+    printfln("my stack at: %h", stack + 4096);
+    asm ("movl %0, %%esp"::"r"(stack + 4096):"%esp");
+
+    TCB* test_thread = thread_create(0, 0x8BADB002, stack + 4096, 0);
+    trap_frame_t* test_frame = stack + 4096 - sizeof(trap_frame_t) - 16;
+
+    scheduler_init(&get_cpu_storage(0)->scheduler);
+    scheduler_add_ready(&get_cpu_storage(0)->scheduler, test_thread);
+
+    trap_frame_print(test_frame);
+
+    PANIC("END");
 	
 	while(1)
 	{

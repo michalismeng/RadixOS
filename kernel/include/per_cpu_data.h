@@ -3,6 +3,7 @@
 
 #include <types.h>
 #include <tss.h>
+#include <thread_sched.h>
 
 extern void _set_cpu_gs(uint32_t gdt_offset);
 extern void _set_cpu_ss(uint32_t gdt_offset);
@@ -19,7 +20,9 @@ typedef volatile struct per_cpu_data_struct_t
     uint32_t lapic_period;      // period of the lapic timer
     uint32_t lapic_count;       // count of the lapic timer
 
-    tss_entry_t tss_entry;
+    tss_entry_t tss_entry;      // tss data for the processor
+
+    thread_sched_t scheduler;   // cpu scheduler
 
     // uint32_t pad[32];
 

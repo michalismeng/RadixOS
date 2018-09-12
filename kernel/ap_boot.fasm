@@ -46,7 +46,9 @@ bits 32
         mov fs, ax
         mov ss, ax
 
-        mov esp, dword[stack]
+        mov esp, dword [stack]
+
+        ; setup special segments
 
         mov ax, word [ss_entry]
         mov cx, 8
@@ -59,6 +61,8 @@ bits 32
         add ax, 8
         or ax, 3
         ltr ax                          ; install the tss entry of each AP
+
+        ; ---------------------------------------------
 
         mov eax, 0x80000                ; load the dummy page directory created when the BSP booted
         mov cr3, eax

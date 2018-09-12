@@ -45,10 +45,12 @@ void setup_processor()
 	uint32_t id = per_cpu_read(PER_CPU_OFFSET(id));
     printfln("processor %u is awake at stack %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
 
-    // void final_processor_setup();
 	lapic_enable(get_gst()->lapic_base);
 	// calibrate the lapic timer of the AP
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
+
+    // setup usermode kernel stack (one per processor) 
+    tss_set_kernel_stack(&get_cpu_storage(id)->tss_entry, alloc_perm() + 4096, GDT_SS_ENTRY(id) * 8);
 
 	// give the mark to the BSP to continue waking up processors
 	release_lock(&ready);
@@ -96,7 +98,7 @@ void startup_all_AP()
 		if(get_gst()->per_cpu_data_base[i].enabled == 0)
 			continue;
 		
-		*(uint16_t*)0x800C = GDT_SS_ENTRY(i);                               // mark the gdt entry so that 'ap_boot.fasm' can set the GS register accordingly
+		*(uint16_t*)0x800C = GDT_SS_ENTRY(i);                               // mark the gdt entry so that 'ap_boot.fasm' can set the SS register accordingly
 		*(uint32_t*)0x800E = phys_mem_alloc_above_1mb() + 4096;				// reserve 4KB stack for each processor. must be identity mapped region
 
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);

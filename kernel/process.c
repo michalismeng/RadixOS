@@ -78,6 +78,40 @@ PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t* name)
 	return 0;
 }
 
+TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid)
+{
+    // fail when the slot is already occupied
+    if(!(thread_slots[tid].flags & THREAD_SLOT_EMPTY))
+        return 0;
+
+    TCB* new_tcb = &thread_slots[tid];
+
+    new_tcb->flags = THREAD_NEW;
+    new_tcb->tid = tid;
+    new_tcb->parent = parent;
+    new_tcb->priotity = priority;
+    new_tcb->next = new_tcb->prev = 0;
+    
+    trap_frame_init(&new_tcb->frame, entry_point, stack_top);
+
+    return new_tcb;
+}
+
+TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority)
+{
+    // find an empty slot in the thread slot table
+	TCB* new_tcb = 0;
+	for(uint32_t i = 0; i < MAX_THREAD_SLOTS; i++)
+	{
+		new_tcb = thread_create_static(parent, entry_point, stack_top, priority, i);
+
+		if(new_tcb)
+			return new_tcb;
+	}
+
+	return 0;
+}
+
 
 // void thread_setup_execution_stack(TCB* t, uint32_t entry)
 // {

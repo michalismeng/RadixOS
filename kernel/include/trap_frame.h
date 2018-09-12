@@ -29,4 +29,10 @@
 
 #pragma pack(pop, 1)
 
+// initialize a user thread trap frame
+void trap_frame_init(trap_frame_t* frame, virtual_addr_t entry_point, virtual_addr_t stack_top);
+
+// prints the trap frame
+void trap_frame_print(trap_frame_t* frame);
+
 #endif
