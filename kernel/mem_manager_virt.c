@@ -2,7 +2,6 @@
 #include <mem_manager_phys.h>
 #include <debug.h>
 #include <utility.h>
-#include <iregs.h>
 #include <gst.h>
 
 // private data
@@ -25,7 +24,7 @@ int page_fault_error_is_user(uint32_t error)
 	return (error & 0x4);
 }
 
-int32_t page_fault_handler(iregisters_t* regs)
+int32_t page_fault_handler(trap_frame_t* regs)
 {
 	uint32_t cr2;
     __asm__ __volatile__ (
@@ -35,10 +34,10 @@ int32_t page_fault_handler(iregisters_t* regs)
     	: /* no input */
     	: "%eax");
 
+	printfln("page fault occured at: %h", cr2);
     if(page_fault_error_is_user(regs->err_code))
         PANIC("SIGSEGV");
 
-	printfln("page fault occured at: %h", cr2);
 	virt_mem_map_page(virt_mem_get_current_address_space(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
 
 	return 0;

@@ -4,43 +4,34 @@
 #include <types.h>
 
 #pragma pack(push, 1)
-	// represents the stack right before the thread is loaded. Must have this exact form.
-	typedef struct trap_frame
+	// represents the stack right before a user thread is loaded. (switch between rings 0-3)
+	typedef struct trap_frame_user
 	{
-		// /* pushed by isr. */
-		// uint32_t gs;
-		// uint32_t fs;
-		// uint32_t es;
-		// uint32_t ds;
-		// /* pushed by pusha. */
-		// uint32_t eax;
-		// uint32_t ebx;
-		// uint32_t ecx;
-		// uint32_t edx;
-		// uint32_t esi;
-		// uint32_t edi;
-		// uint32_t esp;
-		// uint32_t ebp;
-
-        // uint32_t err_code;
-        // uint32_t int_no;
-		// /* pushed by cpu. */
-		// uint32_t eip;
-		// uint32_t cs;
-		// uint32_t flags;
-        // uint32_t useresp;
-        // uint32_t ss;
-
         uint32_t gs, fs, es, ds;
-        uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
+        uint32_t edi, esi, ebp, kernel_esp, ebx, edx, ecx, eax;
         uint32_t int_no, err_code;
-        uint32_t eip, cs, flags, useresp, ss;
-	}trap_frame_t;
+        uint32_t eip, cs, flags, esp, ss;
+	}trap_frame_user_t;
+
+    typedef trap_frame_user_t trap_frame_t;
+
+    // represents the stack right before a kernel thread is loaded. (switch between rings 0-0)
+    typedef struct trap_frame_kernel
+    {
+        uint32_t gs, fs, es, ds;
+        uint32_t edi, esi, ebp, kernel_esp, ebx, edx, ecx, eax;
+        uint32_t int_no, err_code;
+        uint32_t eip, cs, flags;
+
+    }trap_frame_kernel_t;
 
 #pragma pack(pop, 1)
 
 // initialize a user thread trap frame
-void trap_frame_init(trap_frame_t* frame, virtual_addr_t entry_point, virtual_addr_t stack_top);
+void trap_frame_init_user(trap_frame_t* frame, virtual_addr_t entry_point, virtual_addr_t stack_top);
+
+// initialize a kernel thread trap frame
+void trap_frame_init_kernel(trap_frame_kernel_t* frame, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t IF);
 
 // prints the trap frame
 void trap_frame_print(trap_frame_t* frame);

@@ -44,7 +44,7 @@ void process_init()
 	}
 }
 
-PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t* name, uint16_t pid)
+PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], uint16_t pid)
 {
 	// fail when the slot is already occupied
 	if(!(process_slots[pid].flags & PROCESS_SLOT_EMPTY))
@@ -63,7 +63,7 @@ PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t* name, uint1
 	return new_pcb;
 }
 
-PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t* name)
+PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t name[16])
 {
 	// find an empty slot in the process slot table
 	PCB* new_pcb = 0;
@@ -78,7 +78,7 @@ PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t* name)
 	return 0;
 }
 
-TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid)
+TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid, uint16_t is_kernel)
 {
     // fail when the slot is already occupied
     if(!(thread_slots[tid].flags & THREAD_SLOT_EMPTY))
@@ -90,20 +90,24 @@ TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_
     new_tcb->tid = tid;
     new_tcb->parent = parent;
     new_tcb->priotity = priority;
+    new_tcb->is_kernel = is_kernel;
     new_tcb->next = new_tcb->prev = 0;
     
-    trap_frame_init(&new_tcb->frame, entry_point, stack_top);
+    if(is_kernel)
+        trap_frame_init_kernel(&new_tcb->kframe, entry_point, stack_top, 1);
+    else
+        trap_frame_init_user(&new_tcb->frame, entry_point, stack_top);
 
     return new_tcb;
 }
 
-TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority)
+TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t is_kernel)
 {
     // find an empty slot in the thread slot table
 	TCB* new_tcb = 0;
 	for(uint32_t i = 0; i < MAX_THREAD_SLOTS; i++)
 	{
-		new_tcb = thread_create_static(parent, entry_point, stack_top, priority, i);
+		new_tcb = thread_create_static(parent, entry_point, stack_top, priority, i, is_kernel);
 
 		if(new_tcb)
 			return new_tcb;

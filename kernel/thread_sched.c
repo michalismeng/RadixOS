@@ -1,5 +1,6 @@
 #include <thread_sched.h>
 #include <mem_manager_virt.h>
+#include <gst.h>
 
 // * private functions
 
@@ -52,8 +53,9 @@ TCB* scheduler_remove_ready(thread_sched_t* scheduler, uint32_t q_index)
     return head;
 }
 
-void scheduler_stop_current_thread(thread_sched_t* scheduler)
+void scheduler_stop_running_thread(thread_sched_t* scheduler)
 {
+    // TODO: when using get_stack() we imply the scheduler of the current processor -- no need for argument
     virtual_addr_t stack_top = ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size();
 
     // copy register contents to the trap frame of the executing thread
@@ -61,13 +63,12 @@ void scheduler_stop_current_thread(thread_sched_t* scheduler)
 
     // send the executing thread to the back of the queue
     scheduler_add_ready(scheduler, scheduler->current_thread);
+
+    scheduler->current_thread = 0;
 }
 
 void scheduler_run_thread(thread_sched_t* scheduler)
 {
-    virtual_addr_t stack_top = ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size();
-    printfln("stack top: %h", stack_top);
-
     // pick a new thread to schedule
     uint32_t q_index = scheduler_get_first_non_empty(scheduler);
     if(q_index >= NUMBER_PRIORITIES)
@@ -76,9 +77,33 @@ void scheduler_run_thread(thread_sched_t* scheduler)
     TCB* to_run = scheduler_remove_ready(scheduler, q_index);
     scheduler->current_thread = to_run;
 
-    // copy register contents from the new thread back to the stack
-    printfln("write at: %h", stack_top - sizeof(trap_frame_t));
-    memcpy((void*)(stack_top - sizeof(trap_frame_t)), (void*)&to_run->frame, sizeof(trap_frame_t));
+    // switch to the new directory
+    virt_mem_switch_directory(to_run->parent->page_dir);
+
+    
+    if(to_run->is_kernel)
+    {
+        virtual_addr_t stack_top = ceil_division(to_run->kframe.kernel_esp, virt_mem_get_page_size()) * virt_mem_get_page_size();
+        memcpy((void*)(stack_top - sizeof(trap_frame_kernel_t)), (void*)&to_run->kframe, sizeof(trap_frame_kernel_t));
+    }
+    else
+    {
+        virtual_addr_t stack_top = ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size();
+        // copy register contents from the new thread back to the stack
+        memcpy((void*)(stack_top - sizeof(trap_frame_t)), (void*)&to_run->frame, sizeof(trap_frame_t));
+    }
+}
+
+// void scheduler_reschedule(thread_sched_t* scheduler)
+// {
+
+// }
+
+void scheduler_reschedule_current()
+{
+    thread_sched_t* scheduler = &get_cpu_storage(0)->scheduler;
+    scheduler_stop_running_thread(scheduler);
+    scheduler_run_thread(scheduler);
 }
 
 // TCB* current_thread = 0;

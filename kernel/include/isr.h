@@ -2,12 +2,13 @@
 #define ISR_H_07032018
 
 #include <types.h>
-#include <iregs.h>
+#include <trap_frame.h>
 
 #define ISR_HANDLERS 256
 
-
-typedef int32_t(*isr_t)(iregisters_t* regs);
+// interrupt service routine definition. It is assumed that user space code was interrupted, hence we do not use kernel frame.
+// be aware if/when changing ss-esp-kernel_esp registers 
+typedef int32_t(*isr_t)(trap_frame_t* regs);
 
 void isr_init();
 

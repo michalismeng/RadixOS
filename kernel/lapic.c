@@ -74,7 +74,7 @@ void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_v
     reg_writel(base_addr, LAPIC_ICR_LOW, low);
 }
 
-void lapic_timer_callback(iregisters_t* regs)
+void lapic_timer_callback(trap_frame_t* regs)
 {
     // increment the cpu-local lapic counter
     per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);
