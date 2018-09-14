@@ -10,6 +10,8 @@
 #define MAX_PROCESS_SLOTS ((uint16_t)-1 / 2)
 #define MAX_THREAD_SLOTS ((uint16_t)-1)
 
+#define KERNEL_PROCESS_SLOT 0
+
 // enum THREAD_STATE {
 // 	THREAD_NONE,
 // 	THREAD_SLEEP,			// task resides in the sleep queue until its count-down timer reaches zero. It is then enqueued in the ready queue.
@@ -92,6 +94,9 @@ PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], ui
 
 // create a process dynamically (find an empty slot in the table)
 PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t name[16]);
+
+// get a process by its slot id
+PCB* get_process(uint16_t pid);
 
 // create a thread statically (try to acquire the specified slot in the table)
 TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid, uint8_t is_kernel, uint8_t exec_cpu);

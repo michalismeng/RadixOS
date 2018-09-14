@@ -11,9 +11,9 @@
 // kernel entry point
 extern void kernel_entry(multiboot_info_t* mbd, uint32_t* page_directory);
 
-// reserve 32 KB of empty for the page directory  (below 1mb)
-// TODO: Relocate to 0x7E000 which is guaranteed to be free memory
+// reserve space for the page directory  (below 1mb)
 uint8_t* dummy_space = 0x80000;
+
 
 void print_to_screen(char* msg, uint32_t length)
 {
@@ -28,7 +28,7 @@ void print_to_screen(char* msg, uint32_t length)
 
 uint32_t map_page(uint32_t* page_directory, physical_addr pa, virtual_addr_t va)
 {
-    static uint32_t dummy_space_index = 4096;
+    static uint32_t dummy_space_index = 4096; 
 
     uint32_t table_index = va >> 22;
     uint32_t entry_index = (va >> 12) & 0x03FF;

@@ -79,6 +79,14 @@ PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t name[16])
 	return 0;
 }
 
+PCB* get_process(uint16_t pid)
+{
+    if(process_slots[pid].flags & PROCESS_SLOT_EMPTY)
+        return 0;
+
+    return &process_slots[pid];
+}
+
 TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid, uint8_t is_kernel, uint8_t exec_cpu)
 {
     // fail when the slot is already occupied

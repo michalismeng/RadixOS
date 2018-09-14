@@ -10,13 +10,16 @@
 #include <debug.h>
 #include <utility.h>
 #include <thread_sched.h>
+#include <system.h>
+
+#include <clock/clock.h>
 
 extern uint32_t lock;  // lock, used to test spinlock functions when printing
 
 // private functions and data
 
 spinlock_t ready = 0;
-extern spinlock_t sched_read;
+spinlock_t process_ready = 0;
 
 // ! this is not required -- delete
 uint32_t get_stack();
@@ -62,40 +65,32 @@ void setup_processor()
 	// calibrate the lapic timer of the AP
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
-    // setup usermode kernel stack (one per processor)
-    setup_processor_common_stack(id);
-
 	// give the mark to the BSP to continue waking up processors
 	release_spinlock(&ready);
-	asm("sti");
+	INT_ON;
 
-    acquire_spinlock(&sched_read);
-    release_spinlock(&sched_read);
-
-    scheduler_start();
-
-	while(1)
-	{
-		acquire_spinlock(&lock);
-
-		int tempX = cursorX, tempY = cursorY;
-		SetPointer(0, SCREEN_HEIGHT - 2 * (id + 1));
-
-		printf("time: %u", lapic_millis());
-
-		SetPointer(tempX, tempY);
-
-		release_spinlock(&lock);
-
-		for(int i = 0; i < 10000 + id * 1000; i++);
-	}
+    final_processor_setup();
 }
 
 // this function sets up higher level services like virtual memory, ipc... for the processor
 void final_processor_setup()
 {
-	// here we do the final setup of all the processors
-	// concerning virtual memory - lapic timers etc
+    // setup usermode kernel stack (one per processor)
+    setup_processor_common_stack(get_cpu_id);
+
+	acquire_spinlock(&process_ready);   // wait for the processes to be initialized
+    release_spinlock(&process_ready);   // release immediately so that other cpus can continue initialization of the scheduler
+
+    // initialize scheduler
+    scheduler_init(&get_cpu_storage(get_cpu_id)->scheduler);
+
+    // create clock task
+    TCB* clock_task = thread_create(get_process(KERNEL_PROCESS_SLOT), clock_task_entry_point, alloc_perm() + 4096, 0, 1, get_cpu_id);
+    scheduler_add_ready(clock_task);
+
+    scheduler_start();
+
+    PANIC("SHOULD NOT REACH HERE");
 }
 
 // public functions

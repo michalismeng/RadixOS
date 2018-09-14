@@ -26,8 +26,7 @@
 #include <clock/clock.h>
 
 uint32_t lock = 0;
-spinlock_t sched_read = 0; 
-TCB* clock_task2;
+extern spinlock_t process_ready;
 
 heap_t* kheap;
 
@@ -225,73 +224,26 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	INT_ON;
 
-    acquire_spinlock(&sched_read);
+	// --------------------------- boot all processors ---------------------------
+
+    acquire_spinlock(&process_ready);       // block scheduler from BSPs until processes are initialized 
+
 	printfln("processor 0 is awake at stack %h", get_stack());
+
 	startup_all_AP();
 
 	printfln("******** all processors booted ********");
 
 	// --------------------------- end: boot all processors ---------------------------
 
-
     // initialize process structures
 	process_init();
 	printfln("processes initialized");
 
-    // ? perhaps from here on every cpu will perform the same things, so move these to a common function run by all cpus
+    // create kernel process
+    process_create_static(0, get_gst()->BSP_dir, "kernel", KERNEL_PROCESS_SLOT);
 
-    // setup the common stack of user threads (used when switching from ring 3 to ring 0)
-    setup_processor_common_stack(get_cpu_id);
+    release_spinlock(&process_ready);
 
-	// --------------------------- boot all processors ---------------------------
-
-    // ! ------------------------ test thread running with usermode ---------------------
-    // virtual_addr_t stack_base = 0xA00000;
-
-    // extern int do_user();
-    // extern void do_user2();
-
-    // virt_mem_map_page(virt_mem_get_current_address_space(), (int)do_user & (~0xfff), (int)do_user & (~0xfff), I86_PTE_PRESENT | I86_PTE_USER);
-    // virt_mem_map_page(virt_mem_get_current_address_space(), stack_base, stack_base, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-    // virt_mem_map_page(virt_mem_get_current_address_space(), stack_base + 4096, stack_base + 4096, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-    // pd_entry* e = virt_mem_get_page_directory_entry(virt_mem_get_current_directory(), do_user);
-    // pd_entry_add_attrib(e, I86_PTE_WRITABLE);
-
-    // PCB* process = process_create(0, get_gst()->BSP_dir, "clock_task");
-    // TCB* test_thread = thread_create(process, do_user, stack_base + 4096, 0, 1, 0);
-    // TCB* test_thread2 = thread_create(process, do_user2, stack_base + 2 * 4096, 0, 1, 0);
-
-    // scheduler_init(&get_cpu_storage(0)->scheduler);
-    // scheduler_add_ready(test_thread);
-    // scheduler_add_ready(test_thread2);
-
-    // // ClearScreen();
-    // scheduler_run_thread(&get_cpu_storage(0)->scheduler);
-
-    // // run user thread
-    // asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(common_stack - sizeof(trap_frame_t)):"%esp");
-
-    // // run kernel thread
-    // asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(stack_base + 4096 - sizeof(trap_frame_kernel_t)):"%esp");
-
-
-    // initialize the scheduler for this cpu
-    scheduler_init(&get_cpu_storage(0)->scheduler);
-    scheduler_init(&get_cpu_storage(1)->scheduler);
-
-    // create the kernel process which will host threads for the clock and system tasks
-    PCB* kernel_process = process_create(0, get_gst()->BSP_dir, "kernel");
-    TCB* clock_task = thread_create(kernel_process, clock_task_entry_point, alloc_perm() + 4096, 0, 1, 0);
-
-    clock_task2 = thread_create(kernel_process, clock_task_entry_point, alloc_perm() + 4096, 0, 1, 1);
-
-    scheduler_add_ready(clock_task);
-    scheduler_add_ready(clock_task2);
-
-    release_spinlock(&sched_read);
-
-    scheduler_start();
-
-
-    PANIC("SHOULD NOT REACH HERE");
+    final_processor_setup();
 }
