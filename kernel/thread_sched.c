@@ -11,7 +11,7 @@ uint32_t scheduler_get_first_non_empty(thread_sched_t* scheduler)
 		if (scheduler->ready_heads[i])
 			return i;
 
-	return 0;
+	return NUMBER_PRIORITIES;
 }
 
 // * public functions
@@ -21,10 +21,25 @@ void scheduler_init(thread_sched_t* scheduler)
     memset(scheduler, 0, sizeof(thread_sched_t));
 }
 
+void scheduler_start()
+{
+    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+    scheduler_run_thread(scheduler);
+
+    // we execute here if the first thread to execute is a user thread
+    asm("movl %0, %%esp; \
+        pop %%gs; \
+        pop %%fs; \
+        pop %%es; \
+        pop %%ds; \
+        popal; \
+        add $8, %%esp; \
+        iret"::"r"(get_cpu_stack - sizeof(trap_frame_t)):"%esp");
+}
+
 void scheduler_add_ready(TCB* thread)
 {
     thread_sched_t* scheduler = &get_cpu_storage(thread->exec_cpu)->scheduler;
-
     uint32_t priority = thread->priotity;
 
     if(scheduler->ready_tails[priority] == 0)
@@ -70,7 +85,7 @@ void scheduler_stop_running_thread(thread_sched_t* scheduler)
     scheduler->current_thread = 0;
 }
 
-void scheduler_run_thread(thread_sched_t* scheduler)
+TCB* scheduler_run_thread(thread_sched_t* scheduler)
 {
     // pick a new thread to schedule
     uint32_t q_index = scheduler_get_first_non_empty(scheduler);
@@ -90,13 +105,24 @@ void scheduler_run_thread(thread_sched_t* scheduler)
         memcpy(frame_base, &to_run->kframe, sizeof(trap_frame_kernel_t));
 
         // we have to change stack (but if we change we cannot return from this function => do "hard" return)
-        asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(frame_base):"%esp");
+        asm("movl %0, %%esp; \
+        movl %1, %%eax; \
+        mov %%ax, %%ss; \
+        pop %%gs; \
+        pop %%fs; \
+        pop %%es; \
+        pop %%ds; \
+        popal; \
+        add $8, %%esp; \
+        iret"::"r"(frame_base), "r"(GDT_SS_ENTRY(get_cpu_id) * 8):"%esp");
     }
     else
     {
         // copy register contents from the new thread back to the stack
         memcpy(frame_base, &to_run->frame, sizeof(trap_frame_t));
     }
+
+    return to_run;
 }
 
 void scheduler_reschedule(thread_sched_t* scheduler)
@@ -109,6 +135,22 @@ void scheduler_reschedule_current()
 {
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
     scheduler_reschedule(scheduler);
+}
+
+void scheduler_print(thread_sched_t* scheduler)
+{
+    for (uint32_t i = HIGHEST_PRIORITY; i < NUMBER_PRIORITIES; i++)
+    {
+		if (scheduler->ready_heads[i])
+        {
+            printfln("priority: %u", i);
+            for(TCB* temp = scheduler->ready_heads[i]; temp; temp = temp->next)
+            {
+                printfln("thread %u on cpu %u", temp->tid, temp->exec_cpu);
+            }
+        }
+
+    }
 }
 
 

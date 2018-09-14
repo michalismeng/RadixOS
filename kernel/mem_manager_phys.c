@@ -99,7 +99,7 @@ error_t phys_mem_reserve_region(uint32_t base, uint32_t length)
 	uint32_t aligned_addr = base / PHYS_MEM_BLOCK_SIZE;
 	uint32_t aligned_size = length / PHYS_MEM_BLOCK_SIZE;
 
-	acquire_lock(&phys_mem_lock);
+	acquire_spinlock(&phys_mem_lock);
 
 	for (int i = 0; i < aligned_size; i++)
 	{
@@ -110,7 +110,7 @@ error_t phys_mem_reserve_region(uint32_t base, uint32_t length)
 		}
 	}
 
-	release_lock(&phys_mem_lock);
+	release_spinlock(&phys_mem_lock);
 
 	return ERROR_OK;
 }
@@ -123,7 +123,7 @@ error_t phys_mem_free_region(uint32_t base, uint32_t length)
 	uint32_t aligned_addr = base / PHYS_MEM_BLOCK_SIZE;
 	uint32_t aligned_size = length / PHYS_MEM_BLOCK_SIZE;
 
-	acquire_lock(&phys_mem_lock);
+	acquire_spinlock(&phys_mem_lock);
 
 	for (int i = 0; i < aligned_size; i++)
 	{
@@ -134,7 +134,7 @@ error_t phys_mem_free_region(uint32_t base, uint32_t length)
 		}		
 	}
 
-	release_lock(&phys_mem_lock);
+	release_spinlock(&phys_mem_lock);
 
 	return ERROR_OK;
 }
@@ -149,7 +149,7 @@ physical_addr phys_mem_alloc_above(physical_addr addr)
 
 	uint32_t addr_aligned = addr / 4096 * 4096;
 
-	acquire_lock(&phys_mem_lock);
+	acquire_spinlock(&phys_mem_lock);
 
 	uint32_t frame = mmap_first_free(ceil_division(addr_aligned, (4096 * 32)));
 
@@ -161,7 +161,7 @@ physical_addr phys_mem_alloc_above(physical_addr addr)
 	physical_addr ret_addr = frame * PHYS_MEM_BLOCK_SIZE;
 	phys_mem_used_blocks++;
 
-	release_lock(&phys_mem_lock);
+	release_spinlock(&phys_mem_lock);
 
 	return ret_addr;
 }
@@ -180,12 +180,12 @@ error_t phys_mem_dealloc(physical_addr block)
 {
 	int frame = block / PHYS_MEM_BLOCK_SIZE;
 
-	acquire_lock(&phys_mem_lock);
+	acquire_spinlock(&phys_mem_lock);
 	
 	mmap_unset(frame);
 	phys_mem_used_blocks--;
 
-	release_lock(&phys_mem_lock);
+	release_spinlock(&phys_mem_lock);
 
 	return ERROR_OK;
 }

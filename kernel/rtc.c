@@ -86,6 +86,7 @@ void rtc_read_time(ktime_t* time)
     century[0] = 2000;      // assume century is 2000...
 
     // pass the results back to the caller
+    time->msec = 0;
     time->sec = second[0];
     time->min = minute[0];
     time->hour = hour[0];

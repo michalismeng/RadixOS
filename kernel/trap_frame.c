@@ -20,23 +20,20 @@ void trap_frame_init_user(trap_frame_t* frame, virtual_addr_t entry_point, virtu
     frame->eip = entry_point;
     frame->esp = stack_top;
     frame->kernel_esp = kernel_stack_top - sizeof(trap_frame_t) + 16;       // when creating the frame, add 16 to immitate the pushad instruction
-    frame->flags = get_flags() | 0x200;     // make sure interrupts are enabled
+    frame->flags = 0x200;                                                   // make sure interrupts are enabled
 }
 
-void trap_frame_init_kernel(trap_frame_kernel_t* frame, virtual_addr_t entry_point, uint32_t kernel_stack_top, uint32_t IF)
+void trap_frame_init_kernel(trap_frame_kernel_t* frame, virtual_addr_t entry_point, uint32_t kernel_stack_top, uint8_t exec_cpu)
 {
     memset(frame, 0, sizeof(trap_frame_kernel_t));
 
     frame->cs = 0x8;
-    frame->ds = frame->es = frame->fs = frame->gs = 0x10;
-
+    frame->ds = frame->es = frame->fs = 0x10;
+    frame->gs = GDT_GS_ENTRY(exec_cpu) * 8;
+    
     frame->eip = entry_point;
-    frame->kernel_esp = kernel_stack_top;
-
-    if(IF)
-        frame->flags = get_flags() | 0x200;
-    else
-        frame->flags = get_flags() & (~0x200);
+    frame->kernel_esp = kernel_stack_top - sizeof(trap_frame_t) + 16;       // this offset is required when initially running the thread
+    frame->flags = 0x200;
 }
 
 void trap_frame_print(trap_frame_t* frame)

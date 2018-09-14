@@ -92,10 +92,11 @@ TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_
     new_tcb->parent = parent;
     new_tcb->priotity = priority;
     new_tcb->is_kernel = is_kernel;
+    new_tcb->exec_cpu = exec_cpu;
     new_tcb->next = new_tcb->prev = 0;
     
     if(is_kernel)
-        trap_frame_init_kernel(&new_tcb->kframe, entry_point, stack_top, 1);
+        trap_frame_init_kernel(&new_tcb->kframe, entry_point, stack_top, exec_cpu);
     else
         trap_frame_init_user(&new_tcb->frame, entry_point, get_cpu_storage(exec_cpu)->common_stack_top, stack_top);
 

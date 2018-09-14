@@ -5,6 +5,7 @@ section .text
 global get_ds
 global get_gs
 global get_fs
+global get_ss
 global get_flags
 global get_eip
 
@@ -21,6 +22,11 @@ get_gs:
 get_fs:
     xor eax, eax
     mov ax, fs
+    ret
+
+get_ss:
+    xor eax, eax
+    mov ax, ss
     ret
 
 get_flags:

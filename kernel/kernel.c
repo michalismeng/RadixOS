@@ -23,7 +23,11 @@
 #include <process.h>
 #include <mem_alloc.h>
 
+#include <clock/clock.h>
+
 uint32_t lock = 0;
+spinlock_t sched_read = 0; 
+TCB* clock_task2;
 
 heap_t* kheap;
 
@@ -128,7 +132,10 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	if((addr = heap_alloc_a(kheap, get_gst()->processor_count * sizeof(per_cpu_data_t), 4)) == 0)
 		PANIC("per cpu data heap allocation failed");
 	else
+    {
 		get_gst()->per_cpu_data_base = (per_cpu_data_t*)addr;
+        memset(get_gst()->per_cpu_data_base, 0, get_gst()->processor_count * sizeof(per_cpu_data_t));
+    }
 
 	// allocate memory for the gdt entries (5? permanent for the kernel and the user and two for each processor, see below)
 	if((addr = heap_alloc_a(kheap, (GDT_GENERAL_ENTRIES + GDT_ENTRIES_PER_CPU * get_gst()->processor_count) * sizeof(gdt_entry_t), 4)) == 0)
@@ -208,7 +215,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	lapic_enable(get_gst()->lapic_base);
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
-	rtc_read_time(&get_gst()->current_time);
+	rtc_read_time(&get_gst()->system_time);
 
 	// ----------------------- end: setup timers --------------------------------
 	
@@ -218,23 +225,23 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	INT_ON;
 
-	lock = 1;
-
+    acquire_spinlock(&sched_read);
 	printfln("processor 0 is awake at stack %h", get_stack());
-    // ! uncomment this line to start other processors
 	startup_all_AP();
 
 	printfln("******** all processors booted ********");
-	lock = 0;
 
 	// --------------------------- end: boot all processors ---------------------------
+
 
     // initialize process structures
 	process_init();
 	printfln("processes initialized");
 
+    // ? perhaps from here on every cpu will perform the same things, so move these to a common function run by all cpus
+
     // setup the common stack of user threads (used when switching from ring 3 to ring 0)
-    virtual_addr_t common_stack = setup_processor_common_stack(get_cpu_id);
+    setup_processor_common_stack(get_cpu_id);
 
 	// --------------------------- boot all processors ---------------------------
 
@@ -251,35 +258,40 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
     // pd_entry_add_attrib(e, I86_PTE_WRITABLE);
 
     // PCB* process = process_create(0, get_gst()->BSP_dir, "clock_task");
-    // TCB* test_thread = thread_create(process, do_user, stack_base + 4096, 0, 0, 0);
-    // TCB* test_thread2 = thread_create(process, do_user2, stack_base + 2 * 4096, 0, 0, 0);
+    // TCB* test_thread = thread_create(process, do_user, stack_base + 4096, 0, 1, 0);
+    // TCB* test_thread2 = thread_create(process, do_user2, stack_base + 2 * 4096, 0, 1, 0);
 
     // scheduler_init(&get_cpu_storage(0)->scheduler);
     // scheduler_add_ready(test_thread);
     // scheduler_add_ready(test_thread2);
 
-    // ClearScreen();
+    // // ClearScreen();
     // scheduler_run_thread(&get_cpu_storage(0)->scheduler);
 
     // // run user thread
     // asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(common_stack - sizeof(trap_frame_t)):"%esp");
 
-    // run kernel thread
+    // // run kernel thread
     // asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(stack_base + 4096 - sizeof(trap_frame_kernel_t)):"%esp");
 
-	while(1)
-	{
-		acquire_lock(&lock);
 
-		int tempX = cursorX, tempY = cursorY;
-		SetPointer(0, SCREEN_HEIGHT - 3);
+    // initialize the scheduler for this cpu
+    scheduler_init(&get_cpu_storage(0)->scheduler);
+    scheduler_init(&get_cpu_storage(1)->scheduler);
 
-        time_print(&get_gst()->current_time);
+    // create the kernel process which will host threads for the clock and system tasks
+    PCB* kernel_process = process_create(0, get_gst()->BSP_dir, "kernel");
+    TCB* clock_task = thread_create(kernel_process, clock_task_entry_point, alloc_perm() + 4096, 0, 1, 0);
 
-		SetPointer(tempX, tempY);
+    clock_task2 = thread_create(kernel_process, clock_task_entry_point, alloc_perm() + 4096, 0, 1, 1);
 
-		release_lock(&lock);
+    scheduler_add_ready(clock_task);
+    scheduler_add_ready(clock_task2);
 
-		for(int i = 0; i < 10000; i++);		// do some random sleep to allow the other processor to acquire the lock
-	}
+    release_spinlock(&sched_read);
+
+    scheduler_start();
+
+
+    PANIC("SHOULD NOT REACH HERE");
 }

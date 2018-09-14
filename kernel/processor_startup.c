@@ -9,12 +9,14 @@
 #include <kernel_definitions.h>
 #include <debug.h>
 #include <utility.h>
+#include <thread_sched.h>
 
 extern uint32_t lock;  // lock, used to test spinlock functions when printing
 
 // private functions and data
 
 spinlock_t ready = 0;
+extern spinlock_t sched_read;
 
 // ! this is not required -- delete
 uint32_t get_stack();
@@ -64,12 +66,17 @@ void setup_processor()
     setup_processor_common_stack(id);
 
 	// give the mark to the BSP to continue waking up processors
-	release_lock(&ready);
+	release_spinlock(&ready);
 	asm("sti");
+
+    acquire_spinlock(&sched_read);
+    release_spinlock(&sched_read);
+
+    scheduler_start();
 
 	while(1)
 	{
-		acquire_lock(&lock);
+		acquire_spinlock(&lock);
 
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 2 * (id + 1));
@@ -78,7 +85,7 @@ void setup_processor()
 
 		SetPointer(tempX, tempY);
 
-		release_lock(&lock);
+		release_spinlock(&lock);
 
 		for(int i = 0; i < 10000 + id * 1000; i++);
 	}
@@ -103,7 +110,7 @@ void startup_all_AP()
 	// currently the stack for each processor is allocated using the physical memory manager 
     // startup all but the first (BSP) processors
 
-	acquire_lock(&ready);
+	acquire_spinlock(&ready);
     for(uint32_t i = 1; i < get_gst()->processor_count; i++)
 	{
 		if(get_gst()->per_cpu_data_base[i].enabled == 0)
@@ -115,6 +122,6 @@ void startup_all_AP()
 		processor_startup(get_gst()->per_cpu_data_base[i].id, 0x8000);
 
 		// wait for the processor to gracefully boot 
-		acquire_lock(&ready);
+		acquire_spinlock(&ready);
 	}
 }

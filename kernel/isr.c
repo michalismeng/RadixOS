@@ -17,7 +17,7 @@ int32_t* syscall_handler(trap_frame_t* regs)
         printfln("user ss %h\n", regs->ss);
         
         printfln("kernel stack = %h %h", regs->kernel_esp, get_stack());
-        printfln("kernel ds = %h, gs = %h", get_ds(), get_gs());
+        printfln("kernel ds = %h, gs = %h, ss = %h", get_ds(), get_gs(), get_ss());
         printfln("cpu enabled: %u", per_cpu_read(PER_CPU_OFFSET(enabled)));
         printfln("--------------------------");
     }

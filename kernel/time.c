@@ -31,5 +31,5 @@ void time_print(ktime_t* time)
                                     time->year,
                                     time->hour, 
                                     time->min, 
-                                    time->sec + lapic_millis() / 1000);
+                                    time->sec);
 }

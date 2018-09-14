@@ -28,7 +28,7 @@ typedef struct global_system_table_struct_t
 
     uint8_t ioapic_overrides[16];               // overrides of legacy interrupts to the io apic (16 legacy interrupts in total)
 
-    ktime_t current_time;                       // current UTC time of day. Only the BSP should alter this field
+    ktime_t system_time;                        // current UTC time of day. Only the BSP should alter this field
 
     gdt_entry_t* gdt_entries;                   // global descriptor table entries (variable size to account for per processor data)
     per_cpu_data_t* per_cpu_ptrs[MAX_CPUS];     // pointers 

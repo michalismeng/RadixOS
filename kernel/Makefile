@@ -3,7 +3,8 @@ AS := $$elf_as# 		path to cross assembler		(i686-elf-as)
 
 # The current makefile configuration does not take into account include file dependencies!
 
-SOURCES := $(wildcard *.c)
+SOURCES := $(wildcard *.c)\
+		   $(wildcard clock/*.c)
 ASSEMS 	:= $(wildcard *.s)			# .s files are compiled with gcc assembler
 NASMS	:= $(wildcard *.asm)		# .asm files are compiled with nasm
 
@@ -62,5 +63,6 @@ $(OBJ_DEST)/%.o: %.asm
 
 clean:
 	rm -f radixOS.bin
-	rm -rf objs/*
+	# remove all files but keep folder structure
+	find objs -type f -exec rm {} +
 	rm include/ap_boot.h
