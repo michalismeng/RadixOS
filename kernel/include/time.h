@@ -32,5 +32,7 @@ static char* days_of_week[] =
 // returns the weekday in gregorian calendar
 uint8_t time_get_weekday(uint16_t year, uint8_t month, uint8_t day);
 
+void time_print(ktime_t* time);
+
 
 #endif

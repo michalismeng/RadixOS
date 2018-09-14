@@ -16,7 +16,18 @@ extern uint32_t lock;  // lock, used to test spinlock functions when printing
 
 spinlock_t ready = 0;
 
+// ! this is not required -- delete
 uint32_t get_stack();
+
+virtual_addr_t setup_processor_common_stack(uint8_t cpu_id)
+{
+    virtual_addr_t common_stack = alloc_perm() + 4096;
+
+    per_cpu_write(PER_CPU_OFFSET(common_stack_top), common_stack);
+    tss_set_kernel_stack(&get_cpu_storage(cpu_id)->tss_entry, common_stack, GDT_SS_ENTRY(cpu_id) * 8);
+
+    return common_stack;
+}
 
 // startup the processor connected to 'lapic_id' and set it to execute at address 'exec_base'
 void processor_startup(uint32_t lapic_id, physical_addr exec_base)
@@ -42,15 +53,15 @@ void setup_processor()
 
 	idtr_install(&get_gst()->idtr);
 
-	uint32_t id = per_cpu_read(PER_CPU_OFFSET(id));
-    printfln("processor %u is awake at stack %h", per_cpu_read(PER_CPU_OFFSET(id)), get_stack());
+	uint32_t id = get_cpu_id;
+    printfln("processor %u is awake at stack %h", id, get_stack());
 
 	lapic_enable(get_gst()->lapic_base);
 	// calibrate the lapic timer of the AP
 	lapic_calibrate_timer(get_gst()->lapic_base, 10, 64);
 
-    // setup usermode kernel stack (one per processor) 
-    tss_set_kernel_stack(&get_cpu_storage(id)->tss_entry, alloc_perm() + 4096, GDT_SS_ENTRY(id) * 8);
+    // setup usermode kernel stack (one per processor)
+    setup_processor_common_stack(id);
 
 	// give the mark to the BSP to continue waking up processors
 	release_lock(&ready);
@@ -63,7 +74,7 @@ void setup_processor()
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 2 * (id + 1));
 
-		printf("time: %u %u", lapic_millis(), per_cpu_read(PER_CPU_OFFSET(id)));
+		printf("time: %u", lapic_millis());
 
 		SetPointer(tempX, tempY);
 

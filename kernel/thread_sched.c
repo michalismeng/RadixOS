@@ -21,8 +21,10 @@ void scheduler_init(thread_sched_t* scheduler)
     memset(scheduler, 0, sizeof(thread_sched_t));
 }
 
-void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread)
+void scheduler_add_ready(TCB* thread)
 {
+    thread_sched_t* scheduler = &get_cpu_storage(thread->exec_cpu)->scheduler;
+
     uint32_t priority = thread->priotity;
 
     if(scheduler->ready_tails[priority] == 0)
@@ -55,14 +57,15 @@ TCB* scheduler_remove_ready(thread_sched_t* scheduler, uint32_t q_index)
 
 void scheduler_stop_running_thread(thread_sched_t* scheduler)
 {
-    // TODO: when using get_stack() we imply the scheduler of the current processor -- no need for argument
-    virtual_addr_t stack_top = ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size();
+    virtual_addr_t frame_base = scheduler->current_thread->kframe.kernel_esp - 16;          // subtract 16 since some registers are already pushed (see pushad in idtr.asm)
 
-    // copy register contents to the trap frame of the executing thread
-    memcpy(&scheduler->current_thread->frame, (void*)(stack_top - sizeof(trap_frame_t)), sizeof(trap_frame_t));
+    if(scheduler->current_thread->is_kernel)
+        memcpy(&scheduler->current_thread->kframe, frame_base, sizeof(trap_frame_kernel_t));
+    else        
+        memcpy(&scheduler->current_thread->frame, frame_base, sizeof(trap_frame_t));        // copy register contents to the trap frame of the executing thread
 
     // send the executing thread to the back of the queue
-    scheduler_add_ready(scheduler, scheduler->current_thread);
+    scheduler_add_ready(scheduler->current_thread);
 
     scheduler->current_thread = 0;
 }
@@ -80,75 +83,34 @@ void scheduler_run_thread(thread_sched_t* scheduler)
     // switch to the new directory
     virt_mem_switch_directory(to_run->parent->page_dir);
 
-    
+    virtual_addr_t frame_base = to_run->kframe.kernel_esp - 16;
     if(to_run->is_kernel)
     {
-        virtual_addr_t stack_top = ceil_division(to_run->kframe.kernel_esp, virt_mem_get_page_size()) * virt_mem_get_page_size();
-        memcpy((void*)(stack_top - sizeof(trap_frame_kernel_t)), (void*)&to_run->kframe, sizeof(trap_frame_kernel_t));
+        // copy register contents from the new thread back to the stack
+        memcpy(frame_base, &to_run->kframe, sizeof(trap_frame_kernel_t));
+
+        // we have to change stack (but if we change we cannot return from this function => do "hard" return)
+        asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(frame_base):"%esp");
     }
     else
     {
-        virtual_addr_t stack_top = ceil_division(get_stack(), virt_mem_get_page_size()) * virt_mem_get_page_size();
         // copy register contents from the new thread back to the stack
-        memcpy((void*)(stack_top - sizeof(trap_frame_t)), (void*)&to_run->frame, sizeof(trap_frame_t));
+        memcpy(frame_base, &to_run->frame, sizeof(trap_frame_t));
     }
 }
 
-// void scheduler_reschedule(thread_sched_t* scheduler)
-// {
-
-// }
-
-void scheduler_reschedule_current()
+void scheduler_reschedule(thread_sched_t* scheduler)
 {
-    thread_sched_t* scheduler = &get_cpu_storage(0)->scheduler;
     scheduler_stop_running_thread(scheduler);
     scheduler_run_thread(scheduler);
 }
 
-// TCB* current_thread = 0;
-// _thread_sched scheduler;
-// list<PCB*> procs;
+void scheduler_reschedule_current()
+{
+    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+    scheduler_reschedule(scheduler);
+}
 
-// uint32 in_critical_section = 0;
-
-// extern volatile uint32 ticks;
-// extern "C" uint32 frequency;
-
-// // all thread scheduling methods should never request heap memory, in order for the locking mechanisms to work
-// // only thread insert should allocate memory
-// // every other action is just a node move between the queues
-
-// void thread_execute(TCB t)
-// {
-// 	__asm
-// 	{
-// 		// get the new address space
-// 		mov eax, t.parent
-// 		mov eax, [eax]
-
-// 		push eax
-// 		push eax
-
-// 		call vmmngr_switch_directory
-
-// 		; make a good stack
-// 		add esp, 8
-
-// 		// restore stack where all thread data where saved
-// 		mov esp, t.esp
-
-// 		// and pop them
-// 		pop gs
-// 		pop fs
-// 		pop es
-// 		pop ds
-
-// 		popad
-
-// 		iretd
-// 	}
-// }
 
 // void scheduler_decrease_sleep_time()
 // {
@@ -181,94 +143,6 @@ void scheduler_reschedule_current()
 // 			ptr = ptr->next;
 // 		}
 // 	}
-// }
-
-// extern "C" __declspec(naked) void scheduler_interrupt()
-// {
-// 	// already pushed due to interrupt flags, cs, eip
-// 	__asm
-// 	{
-// 		cli
-
-// 		// increase the time ticks
-// 		push eax
-// 		mov eax, dword ptr[ticks]
-// 		inc eax
-// 		mov dword ptr[ticks], eax
-// 		pop eax
-
-// 		// start threading
-// 		cmp current_thread, 0
-// 		je no_tasks
-
-// 		THREAD_SAVE_STATE
-
-// 		call scheduler_thread_switch
-// 		call scheduler_decrease_sleep_time
-
-// 		mov eax, dword ptr[current_thread]	// deref current_thread
-// 		mov eax, [eax + 8]					// deref parent of thread
-// 		mov eax, [eax]						// get page dir
-
-// 		push eax
-// 		push eax
-
-// 		call vmmngr_switch_directory
-
-// 		// restore previous esp from the now changed current thread pointer
-
-// 		mov eax, dword ptr[current_thread]
-// 		mov esp, [eax]
-
-// 		// restore registers saved at the time current task was preempted.These are not the segments above as esp has changed.
-
-// 		pop gs
-// 		pop fs
-// 		pop es
-// 		pop ds
-
-// 		popad
-
-// no_tasks:
-
-// 		push eax
-
-// 		mov al, 20h
-// 		out 20h, al
-
-// 		pop eax
-// 		iretd
-// 	}
-// }
-
-// // public functions
-
-// void init_thread_scheduler()
-// {
-// 	for (uint32 i = 0; i < NUMBER_PRIORITIES; i++)
-// 		dl_list_init(&scheduler.thread_queues[i]);
-
-// 	dl_list_init(&scheduler.block_queue);
-// 	dl_list_init(&scheduler.sleep_queue);
-// }
-
-// TCB_node* thread_get_current_node()
-// {
-// 	INT_OFF;
-// 	auto result = dl_list_find_node(&READY_QUEUE(thread_get_priority(current_thread)), current_thread);
-// 	INT_ON;
-
-// 	return result;
-// }
-
-// TCB* thread_get_current()
-// {
-// 	return current_thread;
-// }
-
-// PCB* process_get_current()
-// {
-// 	return current_thread->parent;
 // }
 
 // void scheduler_thread_switch()

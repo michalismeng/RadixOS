@@ -30,7 +30,7 @@ typedef struct thread_sched
 void scheduler_init(thread_sched_t* scheduler);
 
 // add a new thread to the scheduler
-void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread);
+void scheduler_add_ready(TCB* thread);
 
 // removes the currently running thread
 void scheduler_stop_running_thread(thread_sched_t* scheduler);
@@ -38,8 +38,8 @@ void scheduler_stop_running_thread(thread_sched_t* scheduler);
 // sets a new thread to run
 void scheduler_run_thread(thread_sched_t* scheduler);
 
-// perform reschedule
-// void scheduler_reschedule(thread_sched_t* scheduler);
+// perform reschedule on the given scheduler (=> change cpu running thread)
+void scheduler_reschedule(thread_sched_t* scheduler);
 
 // perform reschedule on the current processor
 void scheduler_reschedule_current();

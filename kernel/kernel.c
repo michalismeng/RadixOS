@@ -100,6 +100,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
     ClearScreen();
 
     // relocate the stack to a safe-ish location
+    // ! this stack must be identity-mapped
     asm ("movl %0, %%esp"::"r"(phys_mem_alloc_above_1mb() + 4096):"%esp");
 	printfln("current stack: %h", get_stack());
 
@@ -210,8 +211,6 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	rtc_read_time(&get_gst()->current_time);
 
 	// ----------------------- end: setup timers --------------------------------
-
-	// --------------------------- boot all processors ---------------------------
 	
 	// boot each processor (except for the current one which is already running ...)
 
@@ -223,54 +222,50 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	printfln("processor 0 is awake at stack %h", get_stack());
     // ! uncomment this line to start other processors
-	// startup_all_AP();
+	startup_all_AP();
 
 	printfln("******** all processors booted ********");
 	lock = 0;
 
 	// --------------------------- end: boot all processors ---------------------------
 
-	// initialize process structures
+    // initialize process structures
 	process_init();
 	printfln("processes initialized");
 
+    // setup the common stack of user threads (used when switching from ring 3 to ring 0)
+    virtual_addr_t common_stack = setup_processor_common_stack(get_cpu_id);
+
+	// --------------------------- boot all processors ---------------------------
+
     // ! ------------------------ test thread running with usermode ---------------------
-    ClearScreen();
-    virtual_addr_t stack = alloc_perm();
-    asm ("movl %0, %%esp"::"r"(stack + 4096 - sizeof(trap_frame_t)):"%esp");
+    // virtual_addr_t stack_base = 0xA00000;
 
-    tss_set_kernel_stack(&get_cpu_storage(per_cpu_read(PER_CPU_OFFSET(id)))->tss_entry, stack + 4096, GDT_SS_ENTRY(0) * 8);
+    // extern int do_user();
+    // extern void do_user2();
 
-    extern int do_user();
-    extern void do_user2();
+    // virt_mem_map_page(virt_mem_get_current_address_space(), (int)do_user & (~0xfff), (int)do_user & (~0xfff), I86_PTE_PRESENT | I86_PTE_USER);
+    // virt_mem_map_page(virt_mem_get_current_address_space(), stack_base, stack_base, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
+    // virt_mem_map_page(virt_mem_get_current_address_space(), stack_base + 4096, stack_base + 4096, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
+    // pd_entry* e = virt_mem_get_page_directory_entry(virt_mem_get_current_directory(), do_user);
+    // pd_entry_add_attrib(e, I86_PTE_WRITABLE);
 
-    virtual_addr_t stack_base = 0xA00000;
+    // PCB* process = process_create(0, get_gst()->BSP_dir, "clock_task");
+    // TCB* test_thread = thread_create(process, do_user, stack_base + 4096, 0, 0, 0);
+    // TCB* test_thread2 = thread_create(process, do_user2, stack_base + 2 * 4096, 0, 0, 0);
 
-    virt_mem_map_page(virt_mem_get_current_address_space(), (int)do_user & (~0xfff), (int)do_user & (~0xfff), I86_PTE_PRESENT | I86_PTE_USER);
-    virt_mem_map_page(virt_mem_get_current_address_space(), stack_base, stack_base, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-    virt_mem_map_page(virt_mem_get_current_address_space(), stack_base + 4096, stack_base + 4096, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-    pd_entry* e = virt_mem_get_page_directory_entry(virt_mem_get_current_directory(), do_user);
-    pd_entry_add_attrib(e, I86_PTE_WRITABLE);
+    // scheduler_init(&get_cpu_storage(0)->scheduler);
+    // scheduler_add_ready(test_thread);
+    // scheduler_add_ready(test_thread2);
 
-    PCB* process = process_create(0, get_gst()->BSP_dir, "clock_task");
-    TCB* test_thread = thread_create(process, do_user, stack_base + 4096, 0, 1);
-    TCB* test_thread2 = thread_create(process, do_user2, stack_base + 2 * 4096, 0, 1);
+    // ClearScreen();
+    // scheduler_run_thread(&get_cpu_storage(0)->scheduler);
 
-    scheduler_init(&get_cpu_storage(0)->scheduler);
-    scheduler_add_ready(&get_cpu_storage(0)->scheduler, test_thread);
-    scheduler_add_ready(&get_cpu_storage(0)->scheduler, test_thread2);
-
-    scheduler_run_thread(&get_cpu_storage(0)->scheduler);
-    trap_frame_print(stack_base + 4096 - sizeof(trap_frame_kernel_t));
-    printfln("----------------------------------");
-
-    // run user thread
-    // asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(stack + 4096 - sizeof(trap_frame_t)):"%esp");
+    // // run user thread
+    // asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(common_stack - sizeof(trap_frame_t)):"%esp");
 
     // run kernel thread
-    asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(stack_base + 4096 - sizeof(trap_frame_kernel_t)):"%esp");
-
-    PANIC("Should not be here");
+    // asm("movl %0, %%esp; pop %%gs; pop %%fs; pop %%es; pop %%ds; popal; add $8, %%esp; iret"::"r"(stack_base + 4096 - sizeof(trap_frame_kernel_t)):"%esp");
 
 	while(1)
 	{
@@ -279,13 +274,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 		int tempX = cursorX, tempY = cursorY;
 		SetPointer(0, SCREEN_HEIGHT - 3);
 
-		printf("%s, %u-%u-%u %u:%u:%u", weekday_to_str(get_gst()->current_time.weekday), 
-										get_gst()->current_time.day, 
-										get_gst()->current_time.month, 
-										get_gst()->current_time.year,
-										get_gst()->current_time.hour, 
-										get_gst()->current_time.min, 
-										get_gst()->current_time.sec + lapic_millis() / 1000);
+        time_print(&get_gst()->current_time);
 
 		SetPointer(tempX, tempY);
 

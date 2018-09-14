@@ -22,3 +22,14 @@ uint8_t time_get_weekday(uint16_t year, uint8_t month, uint8_t day)
     uint8_t w = (day + e[month] + f_greogrian[c % 4] + g + g / 4) % 7;
     return w;
 }
+
+void time_print(ktime_t* time)
+{
+    printf("%s, %u-%u-%u %u:%u:%u", weekday_to_str(time->weekday), 
+                                    time->day, 
+                                    time->month, 
+                                    time->year,
+                                    time->hour, 
+                                    time->min, 
+                                    time->sec + lapic_millis() / 1000);
+}

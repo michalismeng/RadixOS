@@ -7,10 +7,7 @@
 #include <vm_contract.h>
 #include <trap_frame.h>
 
-#define MAX_TASKS 3
-#define MAX_PROCESSES (((uint16_t)-1) / 2 - MAX_TASKS)
 #define MAX_PROCESS_SLOTS ((uint16_t)-1 / 2)
-
 #define MAX_THREAD_SLOTS ((uint16_t)-1)
 
 // enum THREAD_STATE {
@@ -56,7 +53,8 @@ typedef struct thread_control_block
     };
 
 	uint16_t tid;							// thread unique id that correspons to the thread's index in the table
-    uint16_t is_kernel;                     // set when the thread runs in kernel space (and uses kframe instaed of frame)
+    uint8_t is_kernel;                      // set when the thread runs in kernel space (and uses kframe instaed of frame)
+    uint8_t exec_cpu;                       // cpu id that this thread executes on
 
 	PCB* parent;							// parent process that created this thread.
 
@@ -95,10 +93,10 @@ PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], ui
 PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t name[16]);
 
 // create a thread statically (try to acquire the specified slot in the table)
-TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid, uint16_t is_kernel);
+TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid, uint8_t is_kernel, uint8_t exec_cpu);
 
 // create a thread dynamically (find an empty slot in the table)
-TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t is_kernel);
+TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint8_t is_kernel, uint8_t exec_cpu);
 
 
 // TCB* thread_create(PCB* parent, uint32_t entry, virtual_addr_t stack_top, uint32_t stack_size, uint32_t priority);

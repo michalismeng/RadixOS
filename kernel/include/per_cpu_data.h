@@ -11,22 +11,24 @@ extern void _set_cpu_ss(uint32_t gdt_offset);
 // return the offset of a field in the cpu data sturcture
 #define PER_CPU_OFFSET(field) offsetof(per_cpu_data_t, field)
 
+// macro for quick access to cpu id 
+#define get_cpu_id ( per_cpu_read(PER_CPU_OFFSET(id)) )
+
 // defines the data, local to each processor
 typedef volatile struct per_cpu_data_struct_t
 {
-    uint32_t id;                // the processor id
-    uint32_t enabled;           // if set => processor can startup, otherwise do not initiate boot sequence
-    uint32_t test_data;         // random test data to check if gs segment addressing works
-    uint32_t lapic_period;      // period of the lapic timer
-    uint32_t lapic_count;       // count of the lapic timer
+    uint32_t id;                    // the processor id
+    uint32_t enabled;               // if set => processor can startup, otherwise do not initiate boot sequence
+    uint32_t test_data;             // random test data to check if gs segment addressing works
+    uint32_t lapic_period;          // period of the lapic timer
+    uint32_t lapic_count;           // count of the lapic timer
+    uint32_t common_stack_top;      // common stack used by user threads when context switching
 
-    tss_entry_t tss_entry;      // tss data for the processor
+    tss_entry_t tss_entry;          // tss data for the processor
 
-    thread_sched_t scheduler;   // cpu scheduler
+    thread_sched_t scheduler;       // cpu scheduler
 
-    // uint32_t pad[32];
-
-    // TODO: add scheduler queues and other cpu local stuff...
+    // TODO: add other cpu local stuff...
 
 } per_cpu_data_t;
 

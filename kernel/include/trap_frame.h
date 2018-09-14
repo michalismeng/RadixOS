@@ -28,10 +28,10 @@
 #pragma pack(pop, 1)
 
 // initialize a user thread trap frame
-void trap_frame_init_user(trap_frame_t* frame, virtual_addr_t entry_point, virtual_addr_t stack_top);
+void trap_frame_init_user(trap_frame_t* frame, virtual_addr_t entry_point, virtual_addr_t kernel_stack_top, virtual_addr_t stack_top);
 
 // initialize a kernel thread trap frame
-void trap_frame_init_kernel(trap_frame_kernel_t* frame, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t IF);
+void trap_frame_init_kernel(trap_frame_kernel_t* frame, virtual_addr_t entry_point, uint32_t kernel_stack_top, uint32_t IF);
 
 // prints the trap frame
 void trap_frame_print(trap_frame_t* frame);

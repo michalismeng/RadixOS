@@ -1,6 +1,7 @@
 #include <process.h>
 #include <mem_alloc.h>
 #include <string.h>
+#include <gst.h>
 
 // private data and functions
 
@@ -78,7 +79,7 @@ PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t name[16])
 	return 0;
 }
 
-TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid, uint16_t is_kernel)
+TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid, uint8_t is_kernel, uint8_t exec_cpu)
 {
     // fail when the slot is already occupied
     if(!(thread_slots[tid].flags & THREAD_SLOT_EMPTY))
@@ -96,18 +97,18 @@ TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_
     if(is_kernel)
         trap_frame_init_kernel(&new_tcb->kframe, entry_point, stack_top, 1);
     else
-        trap_frame_init_user(&new_tcb->frame, entry_point, stack_top);
+        trap_frame_init_user(&new_tcb->frame, entry_point, get_cpu_storage(exec_cpu)->common_stack_top, stack_top);
 
     return new_tcb;
 }
 
-TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t is_kernel)
+TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint8_t is_kernel, uint8_t exec_cpu)
 {
     // find an empty slot in the thread slot table
 	TCB* new_tcb = 0;
 	for(uint32_t i = 0; i < MAX_THREAD_SLOTS; i++)
 	{
-		new_tcb = thread_create_static(parent, entry_point, stack_top, priority, i, is_kernel);
+		new_tcb = thread_create_static(parent, entry_point, stack_top, priority, i, is_kernel, exec_cpu);
 
 		if(new_tcb)
 			return new_tcb;
@@ -115,31 +116,6 @@ TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack
 
 	return 0;
 }
-
-
-// void thread_setup_execution_stack(TCB* t, uint32_t entry)
-// {
-// 	trap_frame_t* f;
-// 	t->esp -= sizeof(trap_frame_t);		// prepare esp for manual data push
-// 	f = (trap_frame_t*)t->esp;
-
-// 	/* manual setup of the thread's stack */
-// 	f->flags = 0x202;		// IF set along with some ?reserved? bit
-// 	f->cs = 0x8;
-// 	f->ds = 0x10;
-// 	f->eax = 0;
-// 	f->ebp = 0;
-// 	f->ebx = 0;
-// 	f->ecx = 0;
-// 	f->edi = 0;
-// 	f->edx = 0;
-// 	f->eip = entry;
-// 	f->es = 0x10;
-// 	f->esi = 0;
-// 	f->esp = 0;
-// 	f->fs = 0x10;
-// 	f->gs = 0x10;
-// }
 
 // // stack top is the top-most exclusive (last_valid + 1) value for stack.
 // TCB* thread_create(PCB* parent, uint32_t entry, virtual_addr_t stack_top, uint32_t stack_size, uint32_t priority)
