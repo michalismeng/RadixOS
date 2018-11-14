@@ -197,6 +197,7 @@ int rsdp_parse(rsdp_descriptor_t* rsdp)
     if(rsdp == 0 || rsdp->revision != 0)
         return 1;
 
+
     rsdt_descriptor_t* rsdt = (rsdt_descriptor_t*)rsdp->rsdt_addr;
 	uint32_t entries = (rsdt->acpi_header.length - sizeof(acpi_dt_header_t)) / 4;
 
@@ -207,7 +208,10 @@ int rsdp_parse(rsdp_descriptor_t* rsdp)
 		if(memcmp(header->signature, ACPI_MADT, 4) == 0)
         {
             if(madt_parse(header) != 0)
+            {
+                printfln("could not parse madt");
                 return 1;
+            }
         }
         // do other checks for FADT, SLIT...
 	}

@@ -12,21 +12,6 @@
 
 #define KERNEL_PROCESS_SLOT 0
 
-// enum THREAD_STATE {
-// 	THREAD_NONE,
-// 	THREAD_SLEEP,			// task resides in the sleep queue until its count-down timer reaches zero. It is then enqueued in the ready queue.
-// 	THREAD_READY,			// task resides in the ready queue where it waits to be scheduled to run.
-// 	THREAD_RUNNING,			// task does not reside in any queue as it is currently running.
-// 	THREAD_BLOCK			// task resides in the block queue as it has requested blocking I/O service and waits for it to finish.
-// };
-
-// enum THREAD_ATTRIBUTE {
-// 	THREAD_ATTR_NONE,
-// 	THREAD_KERNEL = 1,					// thread is solely kernel => it does not have a user counter-part
-// 	THREAD_NONPREEMPT = 1 << 1,			// thread is non pre-emptible. This applies only to kernel threads. Preemption state may change during thread execution
-// 	THREAD_UNINTERRUPTIBLE = 1 << 2,	// thread is uninterruptible on SIGNALS ! Interrupts affect this thread. (uninterruptible is not cli)
-// };
-
 // definitions for process slot flags used to determine the process state.
 typedef enum {
 	PROCESS_RUNNABLE = 0,
@@ -103,20 +88,5 @@ TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_
 
 // create a thread dynamically (find an empty slot in the table)
 TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint8_t is_kernel, uint8_t exec_cpu);
-
-
-// TCB* thread_create(PCB* parent, uint32_t entry, virtual_addr_t stack_top, uint32_t stack_size, uint32_t priority);
-
-// int32_t thread_get_priority(TCB* thread);
-
-// uint32_t* thread_get_error(TCB* thread);
-
-// int thread_is_preemptible(TCB* thread);
-
-// // add a 4-byte value to the stack so the awaken thread can receive it (like args)
-// // void thread_add_parameter(TCB* thread, uint32_t param);
-
-// // returns the thread with the lowest priority between the two.
-// TCB* thread_get_lower_priority(TCB* thread1, TCB* thread2);
 
 #endif

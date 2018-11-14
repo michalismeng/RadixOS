@@ -6,12 +6,7 @@
 
 extern uint32_t lock;
 
-void hello_clock()
-{
-    printfln("hello from clock!!");
-}
-
-void update_system_time()
+static void update_system_time()
 {
     ktime_t* time = &get_gst()->system_time;
     time->msec += 10;
@@ -46,7 +41,7 @@ void update_system_time()
     }
 }
 
-int32_t timer_callback(trap_frame_t* regs)
+static int32_t timer_callback(trap_frame_t* regs)
 {
     // increment running time for the cpu
     per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);

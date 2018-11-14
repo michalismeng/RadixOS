@@ -133,7 +133,9 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	else
     {
 		get_gst()->per_cpu_data_base = (per_cpu_data_t*)addr;
-        memset(get_gst()->per_cpu_data_base, 0, get_gst()->processor_count * sizeof(per_cpu_data_t));
+
+        // ! memset doesn't work on quad-core... investigate
+        // memset(addr, 0, get_gst()->processor_count * sizeof(per_cpu_data_t));
     }
 
 	// allocate memory for the gdt entries (5? permanent for the kernel and the user and two for each processor, see below)
@@ -243,7 +245,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
     // create kernel process
     process_create_static(0, get_gst()->BSP_dir, "kernel", KERNEL_PROCESS_SLOT);
 
-    release_spinlock(&process_ready);
+    release_spinlock(&process_ready);       // release scheduler so that BSPs can create their threads
 
     final_processor_setup();
 }
