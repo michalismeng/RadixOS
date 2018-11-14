@@ -24,6 +24,11 @@ spinlock_t process_ready = 0;
 // ! this is not required -- delete
 uint32_t get_stack();
 
+void idle()
+{
+	for(;;);
+}
+
 virtual_addr_t setup_processor_common_stack(uint8_t cpu_id)
 {
     virtual_addr_t common_stack = alloc_perm() + 4096;
@@ -81,12 +86,16 @@ void final_processor_setup()
 	acquire_spinlock(&process_ready);   // wait for the processes to be initialized
     release_spinlock(&process_ready);   // release immediately so that other cpus can continue initialization of the scheduler
 
+    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+
     // initialize scheduler
-    scheduler_init(&get_cpu_storage(get_cpu_id)->scheduler);
+    scheduler_init(scheduler);
 
     // create clock task
     TCB* clock_task = thread_create(get_process(KERNEL_PROCESS_SLOT), clock_task_entry_point, alloc_perm() + 4096, 0, 1, get_cpu_id);
-    scheduler_add_ready(clock_task);
+	TCB* idle_thread = thread_create(get_process(KERNEL_PROCESS_SLOT), idle, alloc_perm() + 4096, 7, 1, get_cpu_id);
+    scheduler_add_ready(scheduler, clock_task);
+    scheduler_add_ready(scheduler, idle_thread);
 
     scheduler_start();
 

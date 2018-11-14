@@ -45,7 +45,7 @@ void process_init()
 	}
 }
 
-PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], uint16_t pid)
+PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], pid_t pid)
 {
 	// fail when the slot is already occupied
 	if(!(process_slots[pid].flags & PROCESS_SLOT_EMPTY))
@@ -79,7 +79,7 @@ PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t name[16])
 	return 0;
 }
 
-PCB* get_process(uint16_t pid)
+PCB* get_process(pid_t pid)
 {
     if(process_slots[pid].flags & PROCESS_SLOT_EMPTY)
         return 0;
@@ -87,7 +87,7 @@ PCB* get_process(uint16_t pid)
     return &process_slots[pid];
 }
 
-TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint16_t tid, uint8_t is_kernel, uint8_t exec_cpu)
+TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, tid_t tid, uint8_t is_kernel, uint8_t exec_cpu)
 {
     // fail when the slot is already occupied
     if(!(thread_slots[tid].flags & THREAD_SLOT_EMPTY))

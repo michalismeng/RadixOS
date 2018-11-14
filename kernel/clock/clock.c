@@ -60,6 +60,9 @@ void clock_task_entry_point()
     // replace the timer callback with our own
     isr_register(64, timer_callback);
 
+    if(cpu_is_bsp)
+        scheduler_block_running_thread();
+
     while(1)
 	{
 		acquire_spinlock(&lock);
