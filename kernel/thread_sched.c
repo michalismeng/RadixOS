@@ -129,6 +129,12 @@ void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread)
     release_spinlock(&scheduler->ready_lock);
 }
 
+void scheduler_current_add_ready(TCB* thread)
+{
+    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+    scheduler_add_ready(scheduler, thread);
+}
+
 TCB* scheduler_remove_ready(thread_sched_t* scheduler, uint32_t q_index)
 {
     acquire_spinlock(&scheduler->ready_lock);
@@ -160,6 +166,12 @@ void scheduler_stop_running_thread(thread_sched_t* scheduler)
 
     // send the executing thread to the back of the queue
     scheduler_add_ready(scheduler, cur);
+}
+
+TCB* scheduler_current_remove_running()
+{
+    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+    return scheduler_remove_running(scheduler);
 }
 
 TCB* scheduler_run_thread(thread_sched_t* scheduler)
@@ -205,6 +217,12 @@ TCB* scheduler_run_thread(thread_sched_t* scheduler)
     return to_run;
 }
 
+TCB* scheduler_current_run_thread()
+{
+    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+    return scheduler_run_thread(scheduler);
+}
+
 void scheduler_reschedule(thread_sched_t* scheduler)
 {
     scheduler_stop_running_thread(scheduler);
@@ -240,4 +258,9 @@ void scheduler_print(thread_sched_t* scheduler)
         }
 
     }
+}
+
+TCB* get_current_thread()
+{
+    return &get_cpu_storage(get_cpu_id)->scheduler.current_thread;
 }

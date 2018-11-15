@@ -6,6 +6,8 @@
 #include <mem_manager_virt.h>
 #include <vm_contract.h>
 #include <trap_frame.h>
+#include <ipc/message.h>
+#include <sync/semaphore.h>
 
 #define MAX_PROCESS_SLOTS ((uint16_t)-1 / 2)
 #define MAX_THREAD_SLOTS ((uint16_t)-1)
@@ -28,7 +30,6 @@ typedef enum {
 
 } thread_flags_t;
 
-
 typedef struct process_control_block PCB;
 
 typedef struct thread_control_block
@@ -46,6 +47,10 @@ typedef struct thread_control_block
 	PCB* parent;							// parent process that created this thread.
 
     uint32_t priotity;                      // thread scheduling priority
+
+	message_t message;						// message struct used to send and receive messages for the thread
+	semaphore_t msg_lock;					// thread is ready to receive a message
+	semaphore_t recv_sem;					// thread can consume message
 
 	struct thread_control_block* prev;		// previous thread in the scheduling queue (ready - sleep - block)
 	struct thread_control_block* next;		// next thread in the scheduling queue
@@ -88,5 +93,8 @@ TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_
 
 // create a thread dynamically (find an empty slot in the table)
 TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, uint8_t is_kernel, uint8_t exec_cpu);
+
+// get a thread by its slot id
+TCB* get_thread(tid_t tid);
 
 #endif

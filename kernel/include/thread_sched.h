@@ -3,7 +3,7 @@
 
 #include <types.h>
 #include <process.h>
-#include <spinlock.h>
+#include <sync/spinlock.h>
 
 #define NUMBER_PRIORITIES 8
 #define HIGHEST_PRIORITY 0
@@ -36,11 +36,23 @@ void scheduler_start();
 // add a new thread to the scheduler
 void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread);
 
+// add a new thread to the current core
+void scheduler_current_add_ready(TCB* thread);
+
 // removes the currently running thread
+TCB* scheduler_remove_running(thread_sched_t* scheduler);
+
+// removes the currently running thread from the current core
+TCB* scheduler_current_remove_running();
+
+// preempts the currently running thread
 void scheduler_stop_running_thread(thread_sched_t* scheduler);
 
 // sets a new thread to run and returns it
 TCB* scheduler_run_thread(thread_sched_t* scheduler);
+
+// sets a new thread to run on the current core and returns it
+TCB* scheduler_current_run_thread();
 
 // perform reschedule on the given scheduler (=> change cpu running thread)
 void scheduler_reschedule(thread_sched_t* scheduler);
@@ -53,5 +65,8 @@ void scheduler_block_running_thread();
 
 // print the schduler queues
 void scheduler_print(thread_sched_t* schduler);
+
+// returns the currently executing thread of this core
+TCB* get_current_thread();
 
 #endif

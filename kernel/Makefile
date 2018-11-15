@@ -4,9 +4,12 @@ AS := $$elf_as# 		path to cross assembler		(i686-elf-as)
 # The current makefile configuration does not take into account include file dependencies!
 
 SOURCES := $(wildcard *.c)\
-		   $(wildcard clock/*.c)
+		   $(wildcard clock/*.c)\
+		   $(wildcard sync/*.c)\
+		   $(wildcard ipc/*.c)
 ASSEMS 	:= $(wildcard *.s)			# .s files are compiled with gcc assembler
-NASMS	:= $(wildcard *.asm)		# .asm files are compiled with nasm
+NASMS	:= $(wildcard *.asm)\
+		   $(wildcard sync/*.asm)	# .asm files are compiled with nasm
 
 INC_DEST 	:= include libk/include
 INCLUDES := $(patsubst %, -I%, $(INC_DEST))

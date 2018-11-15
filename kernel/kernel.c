@@ -15,7 +15,7 @@
 #include <per_cpu_data.h>
 #include <isr.h>
 #include <processor_startup.h>
-#include <spinlock.h>
+#include <sync/spinlock.h>
 #include <kernel_definitions.h>
 #include <vm_contract.h>
 #include <rtc.h>

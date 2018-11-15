@@ -1,8 +1,11 @@
+#include <clock/clock.h>
 #include <debug.h>
 #include <isr.h>
 #include <per_cpu_data.h>
 #include <gst.h>
 #include <screen.h>
+
+#include <ipc/ipc.h>
 
 extern uint32_t lock;
 
@@ -54,14 +57,22 @@ static int32_t timer_callback(trap_frame_t* regs)
 void clock_task_entry_point()
 {
 	acquire_spinlock(&lock);    
-    printfln("clock task executing at cpu: %u", get_cpu_id);
+    printfln("clock task executing at cpu: %u with id: %u", get_cpu_id, get_current_thread()->tid);
 	release_spinlock(&lock);
 
     // replace the timer callback with our own
     isr_register(64, timer_callback);
 
     if(cpu_is_bsp)
-        scheduler_block_running_thread();
+    {
+        // message_t msg;
+        // msg.dst = 2;
+        // msg.src = 0;
+
+        // msg.func = 1;
+        // printfln("sending message");
+        // send(&msg);
+    }
 
     while(1)
 	{

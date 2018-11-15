@@ -102,6 +102,12 @@ TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_
     new_tcb->is_kernel = is_kernel;
     new_tcb->exec_cpu = exec_cpu;
     new_tcb->next = new_tcb->prev = 0;
+
+	// the new thread is ready to receive but a message is not there
+	semaphore_init(&new_tcb->msg_lock, 1);
+	semaphore_init(&new_tcb->recv_sem, 0);
+
+	memset(&new_tcb->message, 0, sizeof(message_t));
     
     if(is_kernel)
         trap_frame_init_kernel(&new_tcb->kframe, entry_point, stack_top, exec_cpu);
@@ -124,4 +130,12 @@ TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack
 	}
 
 	return 0;
+}
+
+TCB* get_thread(tid_t tid)
+{
+	if(thread_slots[tid].flags & THREAD_SLOT_EMPTY)
+        return 0;
+
+    return &thread_slots[tid];
 }

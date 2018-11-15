@@ -1,7 +1,7 @@
 #include <mem_manager_phys.h>
 #include <utility.h>
 #include <debug.h>
-#include <spinlock.h>
+#include <sync/spinlock.h>
 
 // private data
 

@@ -3,7 +3,7 @@
 #include <lapic.h>
 #include <ap_boot.h>
 #include <screen.h>
-#include <spinlock.h>
+#include <sync/spinlock.h>
 #include <mem_manager_phys.h>
 #include <mem_manager_virt.h>
 #include <kernel_definitions.h>
@@ -94,6 +94,7 @@ void final_processor_setup()
     // create clock task
     TCB* clock_task = thread_create(get_process(KERNEL_PROCESS_SLOT), clock_task_entry_point, alloc_perm() + 4096, 0, 1, get_cpu_id);
 	TCB* idle_thread = thread_create(get_process(KERNEL_PROCESS_SLOT), idle, alloc_perm() + 4096, 7, 1, get_cpu_id);
+
     scheduler_add_ready(scheduler, clock_task);
     scheduler_add_ready(scheduler, idle_thread);
 
