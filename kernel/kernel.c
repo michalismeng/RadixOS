@@ -21,6 +21,7 @@
 #include <rtc.h>
 #include <tss.h>
 #include <process.h>
+#include <ipc/mailbox.h>
 #include <mem_alloc.h>
 
 #include <clock/clock.h>
@@ -240,6 +241,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
     // initialize process structures
 	process_init();
+	mailbox_init();
 	printfln("processes initialized");
 
     // create kernel process

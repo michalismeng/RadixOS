@@ -76,6 +76,9 @@ extern void apic_irq13();
 extern void apic_irq14();
 extern void apic_irq15();
 
+extern void apic_irq16();
+
+
 void idt_init()
 {
     memset(idt_entries, 0, 256 * sizeof(idt_entry_t));
@@ -131,6 +134,9 @@ void idt_init()
 	idt_set_gate(77, (uint32_t)apic_irq13, 0x08, IDT_INT);
 	idt_set_gate(78, (uint32_t)apic_irq14, 0x08, IDT_INT);
 	idt_set_gate(79, (uint32_t)apic_irq15, 0x08, IDT_INT);
+
+	idt_set_gate(100, (uint32_t)apic_irq16, 0x08, IDT_INT);
+
 
 	// setup legacy PIC IRQs to unused gates 
 	idt_set_gate(224, (uint32_t)irq0, 0x08, IDT_INT);

@@ -3,6 +3,7 @@
 #include <lapic.h>
 #include <gst.h>
 #include <debug.h>
+#include <ipc/ipc.h>
 
 isr_t isr_handlers[ISR_HANDLERS];
 
@@ -42,12 +43,25 @@ int32_t* syscall_handler(trap_frame_t* regs)
         PANIC("Unimplemented syscall");
 }
 
+void test_handle()
+{
+    message_t msg;
+    receive(get_cpu_storage(get_cpu_id)->mailbox, &msg);
+
+    // do work
+
+    printfln("message function: %u", get_cpu_storage(get_cpu_id)->mailbox->message.func);
+
+    acknowledge(&msg);
+}
+
 void isr_init()
 {
 	printfln("isr handlers: %h", isr_handlers);
 	memset(isr_handlers, 0, ISR_HANDLERS * sizeof(isr_t));
 
     isr_register(0x80, syscall_handler);
+    isr_register(100, test_handle);
 }
 
 void isr_handler(trap_frame_t* regs)

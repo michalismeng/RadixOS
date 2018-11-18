@@ -2,7 +2,12 @@ bits 32
 section .text
 
 global acquire_spinlock
+global acquire_spinlock_irq
+global acquire_spinlock_irqsave
+
 global release_spinlock
+global release_spinlock_irq
+global release_spinlock_irqrestore
 
 ; void acquire_spinlock(int* lock) : *lock must be 4-byte aligned to ensure atomic read/write
 acquire_spinlock:
@@ -22,4 +27,19 @@ release_spinlock:
     mov eax, dword [esp + 4]
     btr dword [eax], 0
 
+    ret
+
+release_spinlock_irq:
+    mov eax, dword [esp + 4]
+    btr dword [eax], 0
+    sti
+
+    ret
+
+release_spinlock_irqrestore:
+    mov eax, dword [esp + 4]
+    btr dword [eax], 0
+    push dword [esp + 8]
+    popfd
+    
     ret

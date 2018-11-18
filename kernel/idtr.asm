@@ -167,6 +167,9 @@ APIC_IRQ 13, 77
 APIC_IRQ 14, 78
 APIC_IRQ 15, 79
 
+APIC_IRQ 16, 100
+
+
 extern isr_handler
 extern irq_handler
 extern acpi_irq_handler

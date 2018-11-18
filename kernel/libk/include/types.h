@@ -13,8 +13,9 @@ typedef void   VOID;
 typedef uint32_t virtual_addr_t;
 typedef uint32_t physical_addr;
 
-typedef uint16_t tid_t;
-typedef uint16_t pid_t;
+typedef uint16_t tid_t;			// thread id
+typedef uint16_t pid_t;			// process id
+typedef uint16_t mid_t;			// mailbox id
 
 enum error_t
 {

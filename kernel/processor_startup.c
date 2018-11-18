@@ -11,6 +11,7 @@
 #include <utility.h>
 #include <thread_sched.h>
 #include <system.h>
+#include <ipc/mailbox.h>
 
 #include <clock/clock.h>
 
@@ -78,13 +79,16 @@ void setup_processor()
 }
 
 // this function sets up higher level services like virtual memory, ipc... for the processor
+// it is executed as common code by the APs and the BSP
 void final_processor_setup()
 {
+	acquire_spinlock(&process_ready);   // wait for the processes to be initialized
+    release_spinlock(&process_ready);   // release immediately so that other cpus can continue initialization of the scheduler
+	
     // setup usermode kernel stack (one per processor)
     setup_processor_common_stack(get_cpu_id);
 
-	acquire_spinlock(&process_ready);   // wait for the processes to be initialized
-    release_spinlock(&process_ready);   // release immediately so that other cpus can continue initialization of the scheduler
+	get_cpu_storage(get_cpu_id)->mailbox = mailbox_create_static(get_cpu_id, MAILBOX_CPU, get_cpu_storage(get_cpu_id));
 
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
 
@@ -98,7 +102,7 @@ void final_processor_setup()
     scheduler_add_ready(scheduler, clock_task);
     scheduler_add_ready(scheduler, idle_thread);
 
-    scheduler_start();
+    scheduler_current_start();
 
     PANIC("SHOULD NOT REACH HERE");
 }

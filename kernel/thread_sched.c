@@ -91,7 +91,7 @@ void scheduler_init(thread_sched_t* scheduler)
     memset(scheduler, 0, sizeof(thread_sched_t));
 }
 
-void scheduler_start()
+void scheduler_current_start()
 {
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
     scheduler_run_thread(scheduler);
@@ -178,6 +178,7 @@ TCB* scheduler_run_thread(thread_sched_t* scheduler)
 {
     // pick a new thread to schedule
     uint32_t q_index = scheduler_get_first_non_empty(scheduler);
+    
     if(q_index >= NUMBER_PRIORITIES)
         PANIC("invalid scheduling queue received");
 
@@ -191,6 +192,7 @@ TCB* scheduler_run_thread(thread_sched_t* scheduler)
     virt_mem_switch_directory(to_run->parent->page_dir);
 
     virtual_addr_t frame_base = to_run->kframe.kernel_esp - 16;
+
     if(to_run->is_kernel)
     {
         // copy register contents from the new thread back to the stack
@@ -246,6 +248,8 @@ void scheduler_block_running_thread()
 
 void scheduler_print(thread_sched_t* scheduler)
 {
+    acquire_spinlock(&scheduler->ready_lock);
+    
     for (uint32_t i = HIGHEST_PRIORITY; i < NUMBER_PRIORITIES; i++)
     {
 		if (scheduler->ready_heads[i])
@@ -258,9 +262,10 @@ void scheduler_print(thread_sched_t* scheduler)
         }
 
     }
+    release_spinlock(&scheduler->ready_lock);
 }
 
 TCB* get_current_thread()
 {
-    return &get_cpu_storage(get_cpu_id)->scheduler.current_thread;
+    return get_cpu_storage(get_cpu_id)->scheduler.current_thread;
 }

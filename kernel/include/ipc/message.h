@@ -7,7 +7,7 @@
 
 typedef struct {
 
-    tid_t src, dst;                                 // sender and receiver thread
+    mid_t src, dst;                                 // sender and receiver mailboxed
 
     uint16_t func;                                  // requested function
     uint16_t type;                                  // type of requested function

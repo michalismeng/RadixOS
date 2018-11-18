@@ -4,6 +4,7 @@
 #include <per_cpu_data.h>
 #include <gst.h>
 #include <screen.h>
+#include <lapic.h>
 
 #include <ipc/ipc.h>
 
@@ -56,23 +57,58 @@ static int32_t timer_callback(trap_frame_t* regs)
 
 void clock_task_entry_point()
 {
-	acquire_spinlock(&lock);    
-    printfln("clock task executing at cpu: %u with id: %u", get_cpu_id, get_current_thread()->tid);
+	acquire_spinlock(&lock);
+    printfln("clock task executing at cpu: %u with id: %u %h", get_cpu_id, get_current_thread()->tid, get_current_thread());
 	release_spinlock(&lock);
 
-    // replace the timer callback with our own
-    isr_register(64, timer_callback);
+    //! send message example
+    // if(cpu_is_bsp)
+    // {
+    //     for(int i = 0; i < 20000000; i++);
+
+    //     message_t msg;
+    //     msg.src = get_current_thread()->tid;
+    //     msg.dst = 2;
+    //     if(msg.src == 2)
+    //         msg.dst = 0;
+    //     msg.func = 1;
+    //     memcpy(&msg.payload, "hello other thread", 19);
+    //     printfln("sending message to: %u from %u", msg.dst, get_current_thread()->tid);
+    //     send(&msg);
+    // }
+    // else
+    // {
+    //     message_t msg;
+    //     receive(&msg);
+
+    //     acquire_spinlock(&lock);
+    //     printfln("received message from: %u to %u\nfunc: %u payload: %s", msg.src, msg.dst, msg.func, msg.payload);
+    //     release_spinlock(&lock);
+    // }
 
     if(cpu_is_bsp)
     {
-        // message_t msg;
-        // msg.dst = 2;
-        // msg.src = 0;
+        for(int i = 0; i < 20000000; i++);
 
-        // msg.func = 1;
-        // printfln("sending message");
-        // send(&msg);
+        message_t msg;
+        msg.src = 0;
+        msg.dst = 1;
+
+        msg.func = 1;
+
+        send(&msg);
+        printfln("mail sent");
+        msg.func = 2;
+        send(&msg);
+        printfln("mail sent");
+
+        PANIC("END");
     }
+    else
+        asm("cli");
+
+    // replace the timer callback with our own
+    isr_register(64, timer_callback);
 
     while(1)
 	{
@@ -87,7 +123,7 @@ void clock_task_entry_point()
 
 		release_spinlock(&lock);
 
-		for(int i = 0; i < 10000; i++);		// do some random sleep to allow the other processor to acquire the lock
+		for(int i = 0; i < 1000000; i++);		// do some random sleep to allow the other processor to acquire the lock
 	}
 
     // TODO: enter in a message receiving state

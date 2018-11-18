@@ -2,14 +2,17 @@
 #include <mem_alloc.h>
 #include <string.h>
 #include <gst.h>
+#include <sync/spinlock.h>
 
 // private data and functions
 
 // process table.
 PCB* process_slots;
+spinlock_t ps_lock;			// process slots lock
 
 // thread table
 TCB* thread_slots;
+spinlock_t ts_lock;			// thread slots lock
 
 #define for_all_process_slots(x) \
 PCB* x = &process_slots[0];	\
@@ -21,6 +24,8 @@ void process_init()
 {
     uint32_t process_pages = ceil_division(MAX_PROCESS_SLOTS * sizeof(PCB), virt_mem_get_page_size());
 	uint32_t thread_pages = ceil_division(MAX_THREAD_SLOTS * sizeof(TCB), virt_mem_get_page_size());
+
+	ps_lock = ts_lock = 0;
 
 	// allocate enough virtual space right after the kernel for the process and the thread slots
 	process_slots = alloc_perm();
@@ -47,14 +52,15 @@ void process_init()
 
 PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], pid_t pid)
 {
+	// TODO: add spinlock protection
 	// fail when the slot is already occupied
 	if(!(process_slots[pid].flags & PROCESS_SLOT_EMPTY))
 		return 0;
 
 	PCB* new_pcb = &process_slots[pid];
+	new_pcb->flags = PROCESS_NEW;
 
 	new_pcb->pid = pid;
-	new_pcb->flags = PROCESS_NEW;
 	new_pcb->parent = parent;
 	new_pcb->threads = 0;
 	new_pcb->page_dir = pdbr;
@@ -89,13 +95,20 @@ PCB* get_process(pid_t pid)
 
 TCB* thread_create_static(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack_top, uint32_t priority, tid_t tid, uint8_t is_kernel, uint8_t exec_cpu)
 {
+	acquire_spinlock(&ts_lock);
+
     // fail when the slot is already occupied
     if(!(thread_slots[tid].flags & THREAD_SLOT_EMPTY))
+	{
+		release_spinlock(&ts_lock);
         return 0;
+	}
 
     TCB* new_tcb = &thread_slots[tid];
-
     new_tcb->flags = THREAD_NEW;
+
+	release_spinlock(&ts_lock);
+
     new_tcb->tid = tid;
     new_tcb->parent = parent;
     new_tcb->priotity = priority;
@@ -121,6 +134,7 @@ TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack
 {
     // find an empty slot in the thread slot table
 	TCB* new_tcb = 0;
+
 	for(uint32_t i = 0; i < MAX_THREAD_SLOTS; i++)
 	{
 		new_tcb = thread_create_static(parent, entry_point, stack_top, priority, i, is_kernel, exec_cpu);

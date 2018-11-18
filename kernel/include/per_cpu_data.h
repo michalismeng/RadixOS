@@ -4,6 +4,7 @@
 #include <types.h>
 #include <tss.h>
 #include <thread_sched.h>
+#include <ipc/mailbox.h>
 
 extern void _set_cpu_gs(uint32_t gdt_offset);
 extern void _set_cpu_ss(uint32_t gdt_offset);
@@ -31,6 +32,8 @@ typedef volatile struct per_cpu_data_struct_t
     tss_entry_t tss_entry;          // tss data for the processor
 
     thread_sched_t scheduler;       // cpu scheduler
+
+    mailbox_t* mailbox;             // cpu mailbox for interprocessor communication
 
     // TODO: add other cpu local stuff...
 

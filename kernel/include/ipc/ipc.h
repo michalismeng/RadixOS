@@ -2,11 +2,16 @@
 #define IPC_H_15112018
 
 #include <ipc/message.h>
+#include <ipc/mailbox.h>
 
 // sends the given message. Both source and destination are embedded into the message fields.
 error_t send(message_t* msg);
 
 // receive a message
-error_t receive(message_t* msg);
+error_t receive(mailbox_t* recv_mbox, message_t* msg);
+
+// acknowledges receipt of a CPU-only message. Must be called with a filled message after receive when type is CPU
+error_t acknowledge(message_t* msg);
+
 
 #endif

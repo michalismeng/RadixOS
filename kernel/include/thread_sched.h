@@ -31,7 +31,7 @@ typedef struct thread_sched
 void scheduler_init(thread_sched_t* scheduler);
 
 // starts scheduling on the current cpu
-void scheduler_start();
+void scheduler_current_start();
 
 // add a new thread to the scheduler
 void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread);
