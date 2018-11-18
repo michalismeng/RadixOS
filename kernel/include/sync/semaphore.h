@@ -7,8 +7,8 @@
 
 typedef struct {
 
-    uint32_t count;
     spinlock_t lock;
+    uint32_t count;
 
     struct thread_control_block* waiting_head;
     struct thread_control_block* waiting_tail;

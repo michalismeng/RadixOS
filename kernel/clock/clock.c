@@ -62,50 +62,47 @@ void clock_task_entry_point()
 	release_spinlock(&lock);
 
     //! send message example
+    if(cpu_is_bsp)
+    {
+        message_t msg;
+        msg.src = get_current_thread()->mailbox->mid;
+        msg.dst = get_current_thread()->mailbox->mid + 1;
+
+        msg.func = 15;
+        memcpy(&msg.payload, "hello other thread", 19);
+        printfln("sending message to: %u from %u", msg.dst, msg.src);
+        printfln("message status: %u", send(&msg));
+        printfln("mail sent");
+    }
+    else
+    {
+        for(int i = 0; i < 20000000; i++);
+
+        message_t msg;
+        printfln("start receiving");
+        receive(get_current_thread()->mailbox, &msg);
+
+        acquire_spinlock(&lock);
+        printfln("received message from: %u to %u\nfunc: %u payload: %s", msg.src, msg.dst, msg.func, msg.payload);
+        release_spinlock(&lock);
+    }
+
     // if(cpu_is_bsp)
     // {
     //     for(int i = 0; i < 20000000; i++);
 
     //     message_t msg;
-    //     msg.src = get_current_thread()->tid;
-    //     msg.dst = 2;
-    //     if(msg.src == 2)
-    //         msg.dst = 0;
+    //     msg.src = 0;
+    //     msg.dst = 1;
+
     //     msg.func = 1;
-    //     memcpy(&msg.payload, "hello other thread", 19);
-    //     printfln("sending message to: %u from %u", msg.dst, get_current_thread()->tid);
+
     //     send(&msg);
+    //     printfln("mail sent");
+    //     msg.func = 2;
+    //     send(&msg);
+    //     printfln("mail sent");
     // }
-    // else
-    // {
-    //     message_t msg;
-    //     receive(&msg);
-
-    //     acquire_spinlock(&lock);
-    //     printfln("received message from: %u to %u\nfunc: %u payload: %s", msg.src, msg.dst, msg.func, msg.payload);
-    //     release_spinlock(&lock);
-    // }
-
-    if(cpu_is_bsp)
-    {
-        for(int i = 0; i < 20000000; i++);
-
-        message_t msg;
-        msg.src = 0;
-        msg.dst = 1;
-
-        msg.func = 1;
-
-        send(&msg);
-        printfln("mail sent");
-        msg.func = 2;
-        send(&msg);
-        printfln("mail sent");
-
-        PANIC("END");
-    }
-    else
-        asm("cli");
 
     // replace the timer callback with our own
     isr_register(64, timer_callback);

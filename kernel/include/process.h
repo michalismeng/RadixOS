@@ -6,7 +6,7 @@
 #include <mem_manager_virt.h>
 #include <vm_contract.h>
 #include <trap_frame.h>
-#include <ipc/message.h>
+#include <ipc/mailbox.h>
 #include <sync/semaphore.h>
 
 #define MAX_PROCESS_SLOTS ((uint16_t)-1 / 2)
@@ -48,9 +48,7 @@ typedef struct thread_control_block
 
     uint32_t priotity;                      // thread scheduling priority
 
-	message_t message;						// message struct used to send and receive messages for the thread
-	semaphore_t msg_lock;					// thread is ready to receive a message
-	semaphore_t recv_sem;					// thread can consume message
+	mailbox_t* mailbox;						// mailbox for the thread
 
 	struct thread_control_block* prev;		// previous thread in the scheduling queue (ready - sleep - block)
 	struct thread_control_block* next;		// next thread in the scheduling queue
@@ -96,5 +94,11 @@ TCB* thread_create(PCB* parent, virtual_addr_t entry_point, virtual_addr_t stack
 
 // get a thread by its slot id
 TCB* get_thread(tid_t tid);
+
+// allocates a mailbox for the given thread and returns it
+mailbox_t* thread_alloc_mailbox(TCB* thread);
+
+mailbox_t* thread_alloc_mailbox_static(TCB* thread, mid_t mid);
+
 
 #endif

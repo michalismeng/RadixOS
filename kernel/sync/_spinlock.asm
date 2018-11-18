@@ -22,6 +22,21 @@ acquire_spinlock:
 
     ret
 
+acquire_spinlock_irq:
+    mov eax, dword [esp + 4]
+    .lock_wait:
+        sti
+        test dword [eax], 1
+        jnz .lock_wait
+
+    .lock_acquire:
+        cli
+        lock bts dword[eax], 0
+        jc .lock_wait
+
+    ret
+
+
 ; void release_spinlock(int* lock) : *lock must be 4-byte aligned to ensure atomic read/write
 release_spinlock:
     mov eax, dword [esp + 4]
@@ -41,5 +56,5 @@ release_spinlock_irqrestore:
     btr dword [eax], 0
     push dword [esp + 8]
     popfd
-    
+
     ret

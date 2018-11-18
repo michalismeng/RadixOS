@@ -22,7 +22,6 @@ error_t __send_mail_thread(mailbox_t* dest, message_t* msg)
 
     // copy message to destination kernel structure 
     memcpy(&dest->message, msg, sizeof(message_t));
-
     // signal the destination that we are ready to receive 
     semaphore_signal(&dest->lock.sem_recv);
 

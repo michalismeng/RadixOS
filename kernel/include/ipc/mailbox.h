@@ -14,25 +14,27 @@ typedef enum {
     MAILBOX_THREAD
 } mailbox_type_t;
 
-#pragma pack(push, 1)
+// #pragma pack(push, 1)
 
 typedef struct {
 
     mid_t mid;                          // mailbox id
-    uint8_t type;                       // mailbox type
+    uint16_t type;                      // mailbox type
     void* owner;                        // handle to the owner of this mailbox
     message_t message;					// message struct used to send and receive messages
 
     union {
-        semaphore_t sem_rdy;					// owner is ready to receive data
-        semaphore_t sem_recv;					// owner is allowed to consume the message (aka message is fully copied to local buffer)
+        struct {
+            semaphore_t sem_rdy;					// owner is ready to receive data
+            semaphore_t sem_recv;					// owner is allowed to consume the message (aka message is fully copied to local buffer)
+        };
 
         spinlock_t msg_lock;                    // message is in use. This is set by the sender (before the ipi) and released by the owner after consuming the message.
     } lock;
 
 } mailbox_t;
 
-#pragma pack(pop)
+// #pragma pack(pop)
 
 
 void mailbox_init();
