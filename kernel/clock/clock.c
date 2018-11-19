@@ -62,30 +62,31 @@ void clock_task_entry_point()
 	release_spinlock(&lock);
 
     //! send message example
-    if(cpu_is_bsp)
-    {
-        message_t msg;
-        msg.src = get_current_thread()->mailbox->mid;
-        msg.dst = get_current_thread()->mailbox->mid + 1;
+    // if(cpu_is_bsp)
+    // {
+    //     for(int i = 0; i < 20000000; i++);
 
-        msg.func = 15;
-        memcpy(&msg.payload, "hello other thread", 19);
-        printfln("sending message to: %u from %u", msg.dst, msg.src);
-        printfln("message status: %u", send(&msg));
-        printfln("mail sent");
-    }
-    else
-    {
-        for(int i = 0; i < 20000000; i++);
+    //     message_t msg;
+    //     msg.src = get_current_thread()->mailbox->mid;
+    //     msg.dst = get_current_thread()->mailbox->mid + 1;
 
-        message_t msg;
-        printfln("start receiving");
-        receive(get_current_thread()->mailbox, &msg);
+    //     msg.func = 15;
+    //     memcpy(&msg.payload.custom, "hello other thread", 19);
+    //     printfln("sending message to: %u from %u", msg.dst, msg.src);
+    //     send(&msg);
+    //     printfln("mail sent");
+    // }
+    // else
+    // {
 
-        acquire_spinlock(&lock);
-        printfln("received message from: %u to %u\nfunc: %u payload: %s", msg.src, msg.dst, msg.func, msg.payload);
-        release_spinlock(&lock);
-    }
+    //     // message_t msg;
+    //     // printfln("start receiving");
+    //     // receive(get_current_thread()->mailbox, &msg);
+
+    //     // acquire_spinlock(&lock);
+    //     // printfln("received message from: %u to %u\nfunc: %u payload: %c", msg.src, msg.dst, msg.func, msg.payload.custom[0]);
+    //     // release_spinlock(&lock);
+    // }
 
     // if(cpu_is_bsp)
     // {
@@ -104,8 +105,15 @@ void clock_task_entry_point()
     //     printfln("mail sent");
     // }
 
+    message_t msg;
+    msg.src = msg.dst = get_cpu_id;
+    msg.func = 10;
+    send(&msg);
+
+    printfln("here");
     // replace the timer callback with our own
     isr_register(64, timer_callback);
+
 
     while(1)
 	{

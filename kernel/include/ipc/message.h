@@ -13,7 +13,7 @@ typedef struct {
     uint16_t type;                                  // type of requested function
 
     union {                                         // types of all messages
-
+        uint32_t custom_int;
         uint8_t custom[CUSTOM_MESSAGE_LENGTH];
     } payload;
 

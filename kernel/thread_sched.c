@@ -7,8 +7,6 @@
 // returns the first non empty queue, priority taken into account.
 uint32_t scheduler_get_first_non_empty(thread_sched_t* scheduler)
 {
-    acquire_spinlock(&scheduler->ready_lock);
-
     uint32_t result = NUMBER_PRIORITIES;
 
 	for (uint32_t i = HIGHEST_PRIORITY; i < NUMBER_PRIORITIES; i++)
@@ -20,68 +18,7 @@ uint32_t scheduler_get_first_non_empty(thread_sched_t* scheduler)
         }
     }
 
-    release_spinlock(&scheduler->ready_lock);
 	return result;
-}
-
-// removes the currently executing thread of a processor and returns it
-TCB* scheduler_remove_running(thread_sched_t* scheduler)
-{
-    acquire_spinlock(&scheduler->cur_thread_lock);
-
-    TCB* temp = scheduler->current_thread;
-    scheduler->current_thread = 0;
-
-    release_spinlock(&scheduler->cur_thread_lock);
-
-    return temp;
-}
-
-// add a thread to the end of the block queue
-void scheduler_add_block(thread_sched_t* scheduler, TCB* thread)
-{
-    acquire_spinlock(&scheduler->block_lock);
-
-    if(scheduler->block_tail == 0)
-    {
-        scheduler->block_tail = scheduler->block_head = thread;
-        thread->next = thread->prev = 0;
-    }
-    else
-    {
-        scheduler->block_tail->next = thread;
-        thread->prev = scheduler->block_tail;
-        thread->next = 0;
-        scheduler->block_tail = thread;
-    }
-
-    release_spinlock(&scheduler->block_lock);
-}
-
-// remove a thread from the block queue
-void scheduler_remove_block(thread_sched_t* scheduler, TCB* thread)
-{
-    acquire_spinlock(&scheduler->block_lock);
-
-    if(scheduler->block_head == thread)
-    {
-        thread->next->prev = 0;
-        scheduler->block_head = thread->next;
-    }
-    else if(scheduler->block_tail == thread)
-    {
-        thread->prev->next = 0;
-        scheduler->block_tail = thread->prev;
-    }
-    else
-    {
-        thread->prev->next = thread->next;
-        thread->next->prev = thread->prev;
-    }
-
-    thread->next = thread->prev = 0;
-
-    release_spinlock(&scheduler->block_lock);
 }
 
 // * public functions
@@ -94,24 +31,13 @@ void scheduler_init(thread_sched_t* scheduler)
 void scheduler_current_start()
 {
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
-    scheduler_run_thread(scheduler);
-
-    // we execute here if the first thread to execute is a user thread
-    asm("movl %0, %%esp; \
-        pop %%gs; \
-        pop %%fs; \
-        pop %%es; \
-        pop %%ds; \
-        popal; \
-        add $8, %%esp; \
-        iret"::"r"(get_cpu_stack - sizeof(trap_frame_t)):"%esp");
+    scheduler_schedule_thread(scheduler);
+    scheduler_current_execute();
 }
 
 void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread)
 {
     uint32_t priority = thread->priotity;
-
-    acquire_spinlock(&scheduler->ready_lock);
 
     if(scheduler->ready_tails[priority] == 0)
     {
@@ -125,8 +51,6 @@ void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread)
         thread->next = 0;
         scheduler->ready_tails[priority] = thread;
     }
-
-    release_spinlock(&scheduler->ready_lock);
 }
 
 void scheduler_current_add_ready(TCB* thread)
@@ -137,8 +61,6 @@ void scheduler_current_add_ready(TCB* thread)
 
 TCB* scheduler_remove_ready(thread_sched_t* scheduler, uint32_t q_index)
 {
-    acquire_spinlock(&scheduler->ready_lock);
-
     TCB* head = scheduler->ready_heads[q_index];
     scheduler->ready_heads[q_index] = head->next;
 
@@ -149,23 +71,50 @@ TCB* scheduler_remove_ready(thread_sched_t* scheduler, uint32_t q_index)
 
     head->next = head->prev = 0;
 
-    release_spinlock(&scheduler->ready_lock);
     return head;
 }
 
-void scheduler_stop_running_thread(thread_sched_t* scheduler)
+void scheduler_save_thread_old(thread_sched_t* scheduler, TCB* thread)
 {
-    TCB* cur = scheduler_remove_running(scheduler);
+    virtual_addr_t frame_base = thread->kframe.kernel_esp - 16;          // subtract 16 since some registers are already pushed (see pushad in idtr.asm)
 
-    virtual_addr_t frame_base = cur->kframe.kernel_esp - 16;          // subtract 16 since some registers are already pushed (see pushad in idtr.asm)
-
-    if(cur->is_kernel)
-        memcpy(&cur->kframe, frame_base, sizeof(trap_frame_kernel_t));
+    if(thread->is_kernel)
+        memcpy(&thread->kframe, frame_base, sizeof(trap_frame_kernel_t));
     else        
-        memcpy(&cur->frame, frame_base, sizeof(trap_frame_t));        // copy register contents to the trap frame of the executing thread
+        memcpy(&thread->frame, frame_base, sizeof(trap_frame_t));        // copy register contents to the trap frame of the executing thread
+}
 
-    // send the executing thread to the back of the queue
-    scheduler_add_ready(scheduler, cur);
+void scheduler_save_thread(TCB* thread, trap_frame_t* current_frame)
+{
+    if(thread->is_kernel)
+        memcpy(&thread->kframe, current_frame, sizeof(trap_frame_kernel_t));
+    else        
+        memcpy(&thread->frame, current_frame, sizeof(trap_frame_t));        // copy register contents to the trap frame of the executing thread
+}
+
+
+void scheduler_restore_thread(thread_sched_t* scheduler, TCB* thread)
+{
+    virtual_addr_t frame_base = thread->kframe.kernel_esp - 16;
+
+    if(thread->is_kernel)
+    {
+        // copy register contents from the new thread back to the stack
+        memcpy(frame_base, &thread->kframe, sizeof(trap_frame_kernel_t));
+    }
+    else
+    {
+        // copy register contents from the new thread back to the stack
+        memcpy(frame_base, &thread->frame, sizeof(trap_frame_t));
+    }
+}
+
+TCB* scheduler_remove_running(thread_sched_t* scheduler)
+{
+    TCB* temp = scheduler->current_thread;
+    scheduler->current_thread = 0;
+
+    return temp;
 }
 
 TCB* scheduler_current_remove_running()
@@ -174,81 +123,102 @@ TCB* scheduler_current_remove_running()
     return scheduler_remove_running(scheduler);
 }
 
-TCB* scheduler_run_thread(thread_sched_t* scheduler)
+TCB* scheduler_evict_thread(thread_sched_t* scheduler, trap_frame_t* current_frame)
+{
+    if(scheduler->current_thread)
+    {
+        TCB* old_thread = scheduler_remove_running(scheduler);
+        scheduler_save_thread(old_thread, current_frame);
+
+        return old_thread;
+    }
+
+    return 0;
+}
+
+TCB* scheduler_preempt_thread(thread_sched_t* scheduler, trap_frame_t* current_frame)
+{
+    TCB* thread = scheduler_evict_thread(scheduler, current_frame);
+    if(thread)
+        scheduler_add_ready(scheduler, thread);
+
+    return thread;
+}
+
+TCB* scheduler_schedule_thread(thread_sched_t* scheduler)
 {
     // pick a new thread to schedule
     uint32_t q_index = scheduler_get_first_non_empty(scheduler);
     
     if(q_index >= NUMBER_PRIORITIES)
+    { 
+        printfln("processor: %u", get_cpu_id);
         PANIC("invalid scheduling queue received");
+    }
 
+    // load the new running thread
     TCB* to_run = scheduler_remove_ready(scheduler, q_index);
-
-    acquire_spinlock(&scheduler->cur_thread_lock);
     scheduler->current_thread = to_run;
-    release_spinlock(&scheduler->cur_thread_lock);
-
-    // switch to the new directory
-    virt_mem_switch_directory(to_run->parent->page_dir);
-
-    virtual_addr_t frame_base = to_run->kframe.kernel_esp - 16;
-
-    if(to_run->is_kernel)
-    {
-        // copy register contents from the new thread back to the stack
-        memcpy(frame_base, &to_run->kframe, sizeof(trap_frame_kernel_t));
-
-        // we have to change stack (but if we change we cannot return from this function => do "hard" return)
-        asm("movl %0, %%esp; \
-        movl %1, %%eax; \
-        mov %%ax, %%ss; \
-        pop %%gs; \
-        pop %%fs; \
-        pop %%es; \
-        pop %%ds; \
-        popal; \
-        add $8, %%esp; \
-        iret"::"r"(frame_base), "r"(GDT_SS_ENTRY(get_cpu_id) * 8):"%esp");
-    }
-    else
-    {
-        // copy register contents from the new thread back to the stack
-        memcpy(frame_base, &to_run->frame, sizeof(trap_frame_t));
-    }
 
     return to_run;
 }
 
-TCB* scheduler_current_run_thread()
+TCB* scheduler_current_schedule_thread()
 {
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
-    return scheduler_run_thread(scheduler);
+    return scheduler_schedule_thread(scheduler);
 }
 
-void scheduler_reschedule(thread_sched_t* scheduler)
-{
-    scheduler_stop_running_thread(scheduler);
-    scheduler_run_thread(scheduler);
-}
-
-void scheduler_reschedule_current()
+void scheduler_current_execute()
 {
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
-    scheduler_reschedule(scheduler);
-}
 
-void scheduler_block_running_thread()
-{
-    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
-    TCB* cur = scheduler_remove_running(scheduler);
+    // TODO: maybe we need to turn off interrupts instead of just taking the lock
 
-    scheduler_add_block(scheduler, cur);
-    scheduler_run_thread(scheduler);
+    acquire_spinlock(&scheduler->lock);
+    TCB* thread = scheduler->current_thread;
+    release_spinlock(&scheduler->lock);
+
+    if(thread == 0)
+        PANIC("scheduler received null thread to execute");
+
+    virt_mem_switch_directory(thread->parent->page_dir);
+    scheduler_restore_thread(scheduler, thread);
+
+    virtual_addr_t frame_base = thread->kframe.kernel_esp - 16;
+
+    if(thread->is_kernel)
+    {
+        // TODO: current ss and GDT_SS_ENTRY(get_cpu_id) * 8 seems to be the same
+        asm("movl %0, %%esp; \
+            movl %1, %%eax; \
+            mov %%ax, %%ss; \
+            pop %%gs; \
+            pop %%fs; \
+            pop %%es; \
+            pop %%ds; \
+            popal; \
+            add $8, %%esp; \
+            iret"::"r"(frame_base), "r"(GDT_SS_ENTRY(get_cpu_id) * 8):"%esp");
+    }
+    else
+    {
+        asm("movl %0, %%esp; \
+            pop %%gs; \
+            pop %%fs; \
+            pop %%es; \
+            pop %%ds; \
+            popal; \
+            add $8, %%esp; \
+            iret"::"r"(get_cpu_stack - sizeof(trap_frame_t)):"%esp");   //TODO: get_cpu_stack - sizeof(trap_frame_t) == frame_base ?
+    }
 }
 
 void scheduler_print(thread_sched_t* scheduler)
 {
-    acquire_spinlock(&scheduler->ready_lock);
+    acquire_spinlock(&scheduler->lock);
+
+    printfln("currently running: %u", scheduler->current_thread);
     
     for (uint32_t i = HIGHEST_PRIORITY; i < NUMBER_PRIORITIES; i++)
     {
@@ -262,7 +232,8 @@ void scheduler_print(thread_sched_t* scheduler)
         }
 
     }
-    release_spinlock(&scheduler->ready_lock);
+
+    release_spinlock(&scheduler->lock);
 }
 
 TCB* get_current_thread()

@@ -16,7 +16,9 @@ void semaphore_wait(semaphore_t* sem)
 
     if(sem->count <= 0)
     {
-        TCB* cur = scheduler_current_remove_running();
+        TCB* cur = get_current_thread();
+        scheduler_current_schedule_thread();
+
 
         if(sem->waiting_tail == 0)
             sem->waiting_head = sem->waiting_tail = cur;
@@ -29,7 +31,9 @@ void semaphore_wait(semaphore_t* sem)
 
         release_spinlock(&sem->lock);
 
-        scheduler_current_run_thread();     // reschedule
+        // reschedule
+        scheduler_current_execute();
+
         return;
     }
     else
@@ -64,6 +68,7 @@ void semaphore_signal(semaphore_t* sem)
         msg.src = get_cpu_id;
         msg.dst = thread->exec_cpu;
         msg.func = 15;
+        msg.payload.custom_int = thread;
         send(&msg);
         return;
     }

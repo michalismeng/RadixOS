@@ -29,7 +29,7 @@ int32_t* syscall_handler(trap_frame_t* regs)
     else if (regs->eax == 13)
     {
         printfln("eip: %h", get_eip());
-        scheduler_reschedule_current();
+        // scheduler_reschedule_current();
     }
     else if (regs->eax == 14)
         printfln("service 14 called");
@@ -43,14 +43,44 @@ int32_t* syscall_handler(trap_frame_t* regs)
         PANIC("Unimplemented syscall");
 }
 
-void test_handle()
+void test_handle(trap_frame_t* regs)
 {
     message_t msg;
     receive(get_cpu_storage(get_cpu_id)->mailbox, &msg);
 
     // do work
 
-    printfln("message function: %u", get_cpu_storage(get_cpu_id)->mailbox->message.func);
+    printfln("message function: %u, payload: %h", msg.func, ((TCB*)msg.payload.custom_int)->tid);
+
+    if(msg.func == 10)      // do reschedule
+    {
+        // save thread context
+        thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+        scheduler_preempt_thread(scheduler, regs);
+
+        scheduler_schedule_thread(scheduler);
+
+        acknowledge(&msg);
+        lapic_send_eoi(get_gst()->lapic_base);
+
+        scheduler_current_execute();
+
+        PANIC("DO NOT REACH HERE");
+    }
+
+    // if(msg.func == 15)      // thread needs to awaken
+    // {
+    //     printfln("current thread: %u", get_cpu_storage(get_cpu_id)->scheduler.current_thread->tid);
+    //     scheduler_current_add_ready(msg.payload.custom_int);
+    //     scheduler_current_schedule_thread();
+    //     acknowledge(&msg);                          // ! this should be the last thing to do... (but interrupts are off so we may be saved... CHECK)
+    //     printfln("here");
+    //     PANIC("");
+    //     scheduler_current_execute();
+    //     printfln("hello");
+    //     // execution never reaches here
+    //     // printfln("current thread: %u", get_cpu_storage(get_cpu_id)->scheduler.current_thread->tid);
+    // }
 
     acknowledge(&msg);
 }
@@ -77,7 +107,7 @@ void isr_handler(trap_frame_t* regs)
     }
 }
 
-void irq_handler(trap_frame_t regs)
+void irq_handler(trap_frame_t* regs)
 {
 	printfln("spurious interrupt");
 	// TODO: Send PIC EOI
@@ -88,7 +118,7 @@ void acpi_irq_handler(trap_frame_t* regs)
 	if (isr_handlers[regs->int_no] != 0)
 	{
 		isr_t handler = isr_handlers[regs->int_no];
-		handler(&regs);
+		handler(regs);
 	}
 	else
 		printfln("Hardware interrupt: %u", regs->int_no);
