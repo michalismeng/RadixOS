@@ -4,6 +4,7 @@
 #include <gst.h>
 #include <debug.h>
 #include <ipc/ipc.h>
+#include <ipc/cpu_messages.h>
 
 isr_t isr_handlers[ISR_HANDLERS];
 
@@ -52,7 +53,7 @@ void test_handle(trap_frame_t* regs)
 
     printfln("message function: %u, payload: %h", msg.func, ((TCB*)msg.payload.custom_int)->tid);
 
-    if(msg.func == 10)      // do reschedule
+    if(msg.func == CM_RESCHEDULE)
     {
         // save thread context
         thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;

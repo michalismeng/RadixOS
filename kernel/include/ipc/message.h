@@ -3,14 +3,14 @@
 
 #include <types.h>
 
-#define CUSTOM_MESSAGE_LENGTH 64 - 8
+#define CUSTOM_MESSAGE_LENGTH 64 - 6
 
 typedef struct {
 
     mid_t src, dst;                                 // sender and receiver mailboxed
 
-    uint16_t func;                                  // requested function
-    uint16_t type;                                  // type of requested function
+    uint8_t func;                                   // requested function
+    uint8_t type;                                   // type of requested function
 
     union {                                         // types of all messages
         uint32_t custom_int;

@@ -32,7 +32,7 @@ void trap_frame_init_kernel(trap_frame_kernel_t* frame, virtual_addr_t entry_poi
     frame->gs = GDT_GS_ENTRY(exec_cpu) * 8;
     
     frame->eip = entry_point;
-    frame->kernel_esp = kernel_stack_top - sizeof(trap_frame_t) + 16;       // this offset is required when initially running the thread
+    frame->kernel_esp = kernel_stack_top - sizeof(trap_frame_kernel_t) + 16;       // this offset is required when initially running the thread
     frame->flags = 0x200;
 }
 

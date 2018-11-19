@@ -5,6 +5,7 @@
 #include <gst.h>
 #include <screen.h>
 #include <lapic.h>
+#include <ipc/cpu_messages.h>
 
 #include <ipc/ipc.h>
 
@@ -51,15 +52,42 @@ static int32_t timer_callback(trap_frame_t* regs)
     per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);
 
     // only the BSP should update the system time
-    if(cpu_is_bsp)
+    if(cpu_is_bsp){
         update_system_time();
+    }
+
+    // TODO: when booting maybe not all threads are ready. ensure that before calling reschedule
+
+    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+    scheduler_preempt_thread(scheduler, regs);
+
+    scheduler_schedule_thread(scheduler);
+
+    lapic_send_eoi(get_gst()->lapic_base);
+
+    if(1)
+        scheduler_current_execute();
+    else
+        printfln("thread: %u", get_current_thread()->tid);
 }
 
 void clock_task_entry_point()
 {
 	acquire_spinlock(&lock);
-    printfln("clock task executing at cpu: %u with id: %u %h", get_cpu_id, get_current_thread()->tid, get_current_thread());
+    printfln("clock task executing at cpu: %u with id: %u %h", get_cpu_id, get_current_thread()->tid, get_stack());
 	release_spinlock(&lock);
+
+    if(cpu_is_bsp)
+    {
+        
+        for(int i = 0; i < 20000000; i++);
+
+        acquire_spinlock(&lock);
+        printfln("registering timer callback");
+        release_spinlock(&lock);
+
+        isr_register(64, timer_callback);
+    }
 
     //! send message example
     // if(cpu_is_bsp)
@@ -105,14 +133,13 @@ void clock_task_entry_point()
     //     printfln("mail sent");
     // }
 
-    message_t msg;
-    msg.src = msg.dst = get_cpu_id;
-    msg.func = 10;
-    send(&msg);
+    // message_t msg;
+    // msg.src = msg.dst = get_cpu_id;
+    // msg.func = CM_RESCHEDULE;
+    // send(&msg);
 
-    printfln("here");
+    // printfln("here");
     // replace the timer callback with our own
-    isr_register(64, timer_callback);
 
 
     while(1)

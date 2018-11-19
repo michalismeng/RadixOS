@@ -21,20 +21,7 @@ uint32_t scheduler_get_first_non_empty(thread_sched_t* scheduler)
 	return result;
 }
 
-// * public functions
-
-void scheduler_init(thread_sched_t* scheduler)
-{
-    memset(scheduler, 0, sizeof(thread_sched_t));
-}
-
-void scheduler_current_start()
-{
-    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
-    scheduler_schedule_thread(scheduler);
-    scheduler_current_execute();
-}
-
+// add a new thread to the scheduler
 void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread)
 {
     uint32_t priority = thread->priotity;
@@ -53,12 +40,7 @@ void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread)
     }
 }
 
-void scheduler_current_add_ready(TCB* thread)
-{
-    thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
-    scheduler_add_ready(scheduler, thread);
-}
-
+// removes the head of the ready queue indexed by 'q_index'
 TCB* scheduler_remove_ready(thread_sched_t* scheduler, uint32_t q_index)
 {
     TCB* head = scheduler->ready_heads[q_index];
@@ -74,41 +56,7 @@ TCB* scheduler_remove_ready(thread_sched_t* scheduler, uint32_t q_index)
     return head;
 }
 
-void scheduler_save_thread_old(thread_sched_t* scheduler, TCB* thread)
-{
-    virtual_addr_t frame_base = thread->kframe.kernel_esp - 16;          // subtract 16 since some registers are already pushed (see pushad in idtr.asm)
-
-    if(thread->is_kernel)
-        memcpy(&thread->kframe, frame_base, sizeof(trap_frame_kernel_t));
-    else        
-        memcpy(&thread->frame, frame_base, sizeof(trap_frame_t));        // copy register contents to the trap frame of the executing thread
-}
-
-void scheduler_save_thread(TCB* thread, trap_frame_t* current_frame)
-{
-    if(thread->is_kernel)
-        memcpy(&thread->kframe, current_frame, sizeof(trap_frame_kernel_t));
-    else        
-        memcpy(&thread->frame, current_frame, sizeof(trap_frame_t));        // copy register contents to the trap frame of the executing thread
-}
-
-
-void scheduler_restore_thread(thread_sched_t* scheduler, TCB* thread)
-{
-    virtual_addr_t frame_base = thread->kframe.kernel_esp - 16;
-
-    if(thread->is_kernel)
-    {
-        // copy register contents from the new thread back to the stack
-        memcpy(frame_base, &thread->kframe, sizeof(trap_frame_kernel_t));
-    }
-    else
-    {
-        // copy register contents from the new thread back to the stack
-        memcpy(frame_base, &thread->frame, sizeof(trap_frame_t));
-    }
-}
-
+// removes the currently executing thread of a processor and returns it
 TCB* scheduler_remove_running(thread_sched_t* scheduler)
 {
     TCB* temp = scheduler->current_thread;
@@ -117,10 +65,41 @@ TCB* scheduler_remove_running(thread_sched_t* scheduler)
     return temp;
 }
 
-TCB* scheduler_current_remove_running()
+// saves the given context of the thread to its inner struct 
+void scheduler_save_thread(TCB* thread, trap_frame_t* current_frame)
+{
+    if(thread->is_kernel)
+        memcpy(&thread->kframe, current_frame, sizeof(trap_frame_kernel_t));
+    else        
+        memcpy(&thread->frame, current_frame, sizeof(trap_frame_t));        // copy register contents to the trap frame of the executing thread
+}
+
+// restores a thread context back to memory as if an interrupt had occured
+virtual_addr_t scheduler_restore_thread(thread_sched_t* scheduler, TCB* thread)
+{
+    virtual_addr_t frame_base = thread->kframe.kernel_esp - 48;
+
+    if(thread->is_kernel)
+        memcpy(frame_base, &thread->kframe, sizeof(trap_frame_kernel_t));
+    else
+        memcpy(frame_base, &thread->frame, sizeof(trap_frame_t));
+
+    return frame_base;
+}
+
+
+// * public functions
+
+void scheduler_init(thread_sched_t* scheduler)
+{
+    memset(scheduler, 0, sizeof(thread_sched_t));
+}
+
+void scheduler_current_start()
 {
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
-    return scheduler_remove_running(scheduler);
+    scheduler_schedule_thread(scheduler);
+    scheduler_current_execute();
 }
 
 TCB* scheduler_evict_thread(thread_sched_t* scheduler, trap_frame_t* current_frame)
@@ -172,20 +151,14 @@ TCB* scheduler_current_schedule_thread()
 void scheduler_current_execute()
 {
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
-
-    // TODO: maybe we need to turn off interrupts instead of just taking the lock
-
-    acquire_spinlock(&scheduler->lock);
     TCB* thread = scheduler->current_thread;
-    release_spinlock(&scheduler->lock);
 
     if(thread == 0)
         PANIC("scheduler received null thread to execute");
 
     virt_mem_switch_directory(thread->parent->page_dir);
-    scheduler_restore_thread(scheduler, thread);
-
-    virtual_addr_t frame_base = thread->kframe.kernel_esp - 16;
+    
+    virtual_addr_t frame_base = scheduler_restore_thread(scheduler, thread);
 
     if(thread->is_kernel)
     {
@@ -218,7 +191,7 @@ void scheduler_print(thread_sched_t* scheduler)
 {
     acquire_spinlock(&scheduler->lock);
 
-    printfln("currently running: %u", scheduler->current_thread);
+    printfln("currently running: %u", scheduler->current_thread->tid);
     
     for (uint32_t i = HIGHEST_PRIORITY; i < NUMBER_PRIORITIES; i++)
     {

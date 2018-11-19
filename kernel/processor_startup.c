@@ -99,7 +99,7 @@ void final_processor_setup()
 
     // create clock task
     TCB* clock_task = thread_create(get_process(KERNEL_PROCESS_SLOT), clock_task_entry_point, alloc_perm() + 4096, 0, 1, get_cpu_id);
-	TCB* idle_thread = thread_create(get_process(KERNEL_PROCESS_SLOT), idle, alloc_perm() + 4096, 0, 1, get_cpu_id);
+	TCB* idle_thread = thread_create(get_process(KERNEL_PROCESS_SLOT), idle, alloc_perm() + 4096, 5, 1, get_cpu_id);
 
 	mailbox_t* mbox = thread_alloc_mailbox_static(clock_task, get_gst()->processor_count + get_cpu_id);
 
