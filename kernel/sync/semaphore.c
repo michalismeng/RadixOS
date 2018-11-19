@@ -16,25 +16,14 @@ void semaphore_wait(semaphore_t* sem)
 
     if(sem->count <= 0)
     {
-        TCB* cur = get_current_thread();
-        scheduler_current_schedule_thread();
+        message_t msg;
+        msg.dst = get_cpu_id;
+        msg.src = get_cpu_id;
+        msg.func = CM_SEM_WAIT;                 // send the SEMAPHORE WAIT message
+        msg.payload.msg_ptr1.ptr = sem;
 
-
-        if(sem->waiting_tail == 0)
-            sem->waiting_head = sem->waiting_tail = cur;
-        else
-        {
-            sem->waiting_tail->next = cur;
-            sem->waiting_tail = cur;
-            cur->next = 0;
-        }
-
-        release_spinlock(&sem->lock);
-
-        // reschedule
-        scheduler_current_execute();
-
-        return;
+        send(&msg);
+        return;         // the spinlock is released by the scheduler prior to sleeping => just return
     }
     else
         sem->count--;
@@ -63,13 +52,14 @@ void semaphore_signal(semaphore_t* sem)
         }
 
         release_spinlock(&sem->lock);
-        scheduler_add_ready(&get_cpu_storage(thread->exec_cpu)->scheduler, thread);
+
         message_t msg;
-        msg.src = get_cpu_id;
         msg.dst = thread->exec_cpu;
-        msg.func = 15;
-        msg.payload.custom_int = thread;
+        msg.src = get_cpu_id;
+        msg.func = CM_AWAKEN_THREAD;
+        msg.payload.msg_ptr1.ptr = thread;
         send(&msg);
+        
         return;
     }
     else

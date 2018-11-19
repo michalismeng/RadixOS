@@ -39,6 +39,8 @@ void scheduler_current_start();
 // executes the currently selected thread on the current core
 void scheduler_current_execute();
 
+void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread);
+
 // removes the currently running thread and save its context
 TCB* scheduler_evict_thread(thread_sched_t* scheduler, trap_frame_t* current_frame);
 

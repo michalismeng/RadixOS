@@ -51,10 +51,11 @@ void test_handle(trap_frame_t* regs)
 
     // do work
 
-    printfln("message function: %u, payload: %h", msg.func, ((TCB*)msg.payload.custom_int)->tid);
+    printfln("message function: %u", msg.func);
 
     if(msg.func == CM_RESCHEDULE)
     {
+        printfln("rescheduling core: %u", get_cpu_id);
         // save thread context
         thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
         scheduler_preempt_thread(scheduler, regs);
@@ -67,6 +68,47 @@ void test_handle(trap_frame_t* regs)
         scheduler_current_execute();
 
         PANIC("DO NOT REACH HERE");
+    }
+    else if(msg.func == CM_SEM_WAIT)
+    {
+        semaphore_t* sem = (semaphore_t*)msg.payload.msg_ptr1.ptr;
+        thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+
+        // we only evict as the thread will be added to the semaphore wait queue
+        TCB* thread = scheduler_evict_thread(scheduler, regs);
+
+        if(sem->waiting_tail == 0)
+            sem->waiting_head = sem->waiting_tail = thread;
+        else
+        {
+            sem->waiting_tail->next = thread;
+            sem->waiting_tail = thread;
+            thread->next = 0;
+        }
+        // release the lock that was previously held by the semaphore
+        release_spinlock(&sem->lock);
+
+        scheduler_schedule_thread(scheduler);
+
+        acknowledge(&msg);
+        lapic_send_eoi(get_gst()->lapic_base);
+
+        scheduler_current_execute();
+    }
+    else if(msg.func == CM_AWAKEN_THREAD)
+    {
+        TCB* thread = (TCB*)msg.payload.msg_ptr1.ptr;
+        thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+
+        scheduler_add_ready(scheduler, thread);
+        scheduler_preempt_thread(scheduler, regs);
+
+        scheduler_schedule_thread(scheduler);
+
+        acknowledge(&msg);
+        lapic_send_eoi(get_gst()->lapic_base);
+
+        scheduler_current_execute();
     }
 
     // if(msg.func == 15)      // thread needs to awaken

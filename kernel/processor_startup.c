@@ -27,7 +27,7 @@ uint32_t get_stack();
 
 void idle()
 {
-	printfln("EXECUTING IDLE THREAD");
+	printfln("EXECUTING IDLE THREAD ON CORE: %u", get_cpu_id);
 
 	for(;;);
 }

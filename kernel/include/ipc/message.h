@@ -2,8 +2,18 @@
 #define MESSAGE_H_14112018
 
 #include <types.h>
+#include <ipc/cpu_messages.h>
 
 #define CUSTOM_MESSAGE_LENGTH 64 - 6
+
+typedef struct {
+    void* ptr;
+} msg_single_ptr_t;
+
+typedef struct {
+    void* ptr1;
+    void* ptr2;
+} msg_double_ptr_t;
 
 typedef struct {
 
@@ -13,8 +23,11 @@ typedef struct {
     uint8_t type;                                   // type of requested function
 
     union {                                         // types of all messages
-        uint32_t custom_int;
-        uint8_t custom[CUSTOM_MESSAGE_LENGTH];
+        
+        msg_single_ptr_t msg_ptr1;
+        msg_double_ptr_t msg_ptr2;
+
+        uint8_t msg_custom[CUSTOM_MESSAGE_LENGTH];      // fixes the size to 64 bytes
     } payload;
 
 } message_t;

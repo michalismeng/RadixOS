@@ -56,91 +56,54 @@ static int32_t timer_callback(trap_frame_t* regs)
         update_system_time();
     }
 
-    // TODO: when booting maybe not all threads are ready. ensure that before calling reschedule
-
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
+
     scheduler_preempt_thread(scheduler, regs);
 
     scheduler_schedule_thread(scheduler);
 
     lapic_send_eoi(get_gst()->lapic_base);
-
-    if(1)
-        scheduler_current_execute();
-    else
-        printfln("thread: %u", get_current_thread()->tid);
+    scheduler_current_execute();
 }
 
 void clock_task_entry_point()
 {
+    static int clk_entered = 0;     // count how many processors have entered here to correctly register isr
 	acquire_spinlock(&lock);
     printfln("clock task executing at cpu: %u with id: %u %h", get_cpu_id, get_current_thread()->tid, get_stack());
 	release_spinlock(&lock);
 
+    clk_entered++;
+
     if(cpu_is_bsp)
-    {
-        
-        for(int i = 0; i < 20000000; i++);
-
-        acquire_spinlock(&lock);
-        printfln("registering timer callback");
-        release_spinlock(&lock);
-
+    {   
+        while(clk_entered != get_gst()->processor_count);
         isr_register(64, timer_callback);
     }
 
     //! send message example
-    // if(cpu_is_bsp)
-    // {
-    //     for(int i = 0; i < 20000000; i++);
+    if(cpu_is_bsp)
+    {
+        message_t msg;
+        msg.src = get_current_thread()->mailbox->mid;
+        msg.dst = get_current_thread()->mailbox->mid + 1;
 
-    //     message_t msg;
-    //     msg.src = get_current_thread()->mailbox->mid;
-    //     msg.dst = get_current_thread()->mailbox->mid + 1;
+        msg.func = 15;
+        printfln("sending message to: %u from %u", msg.dst, msg.src);
+        send(&msg);
+        printfln("mail sent");
+    }
+    else
+    {
 
-    //     msg.func = 15;
-    //     memcpy(&msg.payload.custom, "hello other thread", 19);
-    //     printfln("sending message to: %u from %u", msg.dst, msg.src);
-    //     send(&msg);
-    //     printfln("mail sent");
-    // }
-    // else
-    // {
+        message_t msg;
+        printfln("start receiving");
+        receive(get_current_thread()->mailbox, &msg);
 
-    //     // message_t msg;
-    //     // printfln("start receiving");
-    //     // receive(get_current_thread()->mailbox, &msg);
-
-    //     // acquire_spinlock(&lock);
-    //     // printfln("received message from: %u to %u\nfunc: %u payload: %c", msg.src, msg.dst, msg.func, msg.payload.custom[0]);
-    //     // release_spinlock(&lock);
-    // }
-
-    // if(cpu_is_bsp)
-    // {
-    //     for(int i = 0; i < 20000000; i++);
-
-    //     message_t msg;
-    //     msg.src = 0;
-    //     msg.dst = 1;
-
-    //     msg.func = 1;
-
-    //     send(&msg);
-    //     printfln("mail sent");
-    //     msg.func = 2;
-    //     send(&msg);
-    //     printfln("mail sent");
-    // }
-
-    // message_t msg;
-    // msg.src = msg.dst = get_cpu_id;
-    // msg.func = CM_RESCHEDULE;
-    // send(&msg);
-
-    // printfln("here");
-    // replace the timer callback with our own
-
+        acquire_spinlock(&lock);
+        printfln("received message from: %u to %u\nfunc: %u", msg.src, msg.dst, msg.func);
+        release_spinlock(&lock);
+    }
 
     while(1)
 	{
