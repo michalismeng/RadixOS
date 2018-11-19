@@ -51,7 +51,7 @@ void test_handle(trap_frame_t* regs)
 
     // do work
 
-    printfln("message function: %u", msg.func);
+    printfln("cpu message function: %u core: %u", msg.func, get_cpu_id);
 
     if(msg.func == CM_RESCHEDULE)
     {
@@ -71,6 +71,7 @@ void test_handle(trap_frame_t* regs)
     }
     else if(msg.func == CM_SEM_WAIT)
     {
+        printfln("semaphore waiting thread: %u", get_current_thread()->tid);
         semaphore_t* sem = (semaphore_t*)msg.payload.msg_ptr1.ptr;
         thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
 

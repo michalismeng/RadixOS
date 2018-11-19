@@ -92,17 +92,22 @@ void clock_task_entry_point()
         printfln("sending message to: %u from %u", msg.dst, msg.src);
         send(&msg);
         printfln("mail sent");
+        msg.func = 16;
+        send(&msg);
+        printfln("mail 2 sent");
     }
     else
     {
+        for(int i = 0; i < 20000000; i++);
 
         message_t msg;
-        printfln("start receiving");
+        printfln("start receiving. sem recv: %u", get_current_thread()->mailbox->lock.sem_recv.count);
         receive(get_current_thread()->mailbox, &msg);
 
         acquire_spinlock(&lock);
         printfln("received message from: %u to %u\nfunc: %u", msg.src, msg.dst, msg.func);
         release_spinlock(&lock);
+        
     }
 
     while(1)

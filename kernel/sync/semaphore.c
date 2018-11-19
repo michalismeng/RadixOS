@@ -35,7 +35,7 @@ void semaphore_signal(semaphore_t* sem)
 {
     acquire_spinlock(&sem->lock);
 
-    if(sem->count <= 0)
+    if(sem->waiting_tail != 0)
     {
         TCB* thread;
 
@@ -53,13 +53,14 @@ void semaphore_signal(semaphore_t* sem)
 
         release_spinlock(&sem->lock);
 
+        // send awaken message
         message_t msg;
         msg.dst = thread->exec_cpu;
         msg.src = get_cpu_id;
         msg.func = CM_AWAKEN_THREAD;
         msg.payload.msg_ptr1.ptr = thread;
         send(&msg);
-        
+
         return;
     }
     else
