@@ -24,7 +24,7 @@ SECTIONS
 	__kernel_init_end = .;
 
     /* Test entry for user mode programs */
-    . = 0x900000;       /* be aware of the process slots structure that resides in memory */
+    . = 0x600000;       /* be aware of the process slots structure that resides in memory */
 
     .user BLOCK(4K) : ALIGN(4K)
     {

@@ -27,16 +27,30 @@ int page_fault_error_is_user(uint32_t error)
 int32_t page_fault_handler(trap_frame_t* regs)
 {
 	uint32_t cr2;
-    __asm__ __volatile__ (
+
+    asm volatile (
         "mov %%cr2, %%eax\n\t"
         "mov %%eax, %0\n\t"
 		: "=m" (cr2)
     	: /* no input */
     	: "%eax");
 
-	printfln("page fault occured at: %h", cr2);
+	printfln("page fault occured at: %h, eip: %h", cr2, regs->eip);
+	printf("reason: page ");
+	printf(regs->err_code & 1 ? "present " : "not present ");
+	printf(regs->err_code & 2 ? "write " : "read ");
+	printf(regs->err_code & 4 ? "in user " : "in kernel ");
+	printf(regs->err_code & 8 ? "for resved bit  " : "");
+	printfln(regs->err_code & 16 ? "instr fetch " : "not instr fetch ");
+
+	// printfln("page phys mem: %h", virt_mem_get_phys_addr(cr2));
+
+	printfln("");
+	trap_frame_print(regs);
+
     if(page_fault_error_is_user(regs->err_code))
-        PANIC("SIGSEGV");
+        PANIC("\nSIGSEGV");
+
 
 	virt_mem_map_page(virt_mem_get_current_address_space(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
 

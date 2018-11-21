@@ -34,7 +34,8 @@ run: all
 
 debug: all
 	grub-file --is-x86-multiboot radixOS.bin
-	qemu-system-i386 -s -S -smp cores=2,threads=1,sockets=1 -m 128 -kernel radixOS.bin
+	qemu-system-i386 -s -S -m 128 -kernel radixOS.bin
+	# qemu-system-i386 -s -S -smp cores=2,threads=1,sockets=1 -m 128 -kernel radixOS.bin
 
 # rule to run the system in the quad-core configuration
 run-quad: all
@@ -44,13 +45,17 @@ run-quad: all
 # rule to run the system in uniprocessor mode
 run-uni: all
 	grub-file --is-x86-multiboot radixOS.bin
-	qemu-system-i386 -m 128 -kernel radixOS.bin
+	qemu-system-i386 -m 128 -kernel radixOS.bin #-device isa-debug-exit,iobase=0xf4,iosize=0x04   <--- use this with outportb(0xf4, 0) to turn off qemu
 
 # rule to compile the processor boot code into a flat binary and turn it into a c-style array
 ap_boot: ap_boot.fasm
 	nasm -f bin $< -o ap_boot.bin
 	xxd -i ap_boot.bin > include/ap_boot.h
 	rm ap_boot.bin
+
+user_test: user_test.c
+	$(CC) -nostdlib -lgcc user_test.c -o user_test.bin -O0 -fno-stack-protector
+	xxd -i user_test.bin > include/user_test/user_test.h
 
 # rule to compile c source file
 $(OBJ_DEST)/%.o: %.c
@@ -69,3 +74,4 @@ clean:
 	# remove all files but keep folder structure
 	find objs -type f -exec rm {} +
 	rm include/ap_boot.h
+	# rm user_test.bin

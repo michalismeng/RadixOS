@@ -9,6 +9,9 @@
 
 #include <ipc/ipc.h>
 
+#include <elf.h>
+// #include <user_test/user_test.h>
+
 extern uint32_t lock;
 
 static void update_system_time()
@@ -68,7 +71,7 @@ static int32_t timer_callback(trap_frame_t* regs)
 
 void clock_task_entry_point()
 {
-    static int clk_entered = 0;     // count how many processors have entered here to correctly register isr
+    static int clk_entered = 0;     // count how many processors have entered here to correctly register clock isr
 	acquire_spinlock(&lock);
     printfln("clock task executing at cpu: %u with id: %u %h", get_cpu_id, get_current_thread()->tid, get_stack());
 	release_spinlock(&lock);
@@ -107,7 +110,6 @@ void clock_task_entry_point()
         acquire_spinlock(&lock);
         printfln("received message from: %u to %u\nfunc: %u", msg.src, msg.dst, msg.func);
         release_spinlock(&lock);
-        
     }
 
     while(1)

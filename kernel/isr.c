@@ -41,7 +41,7 @@ int32_t* syscall_handler(trap_frame_t* regs)
         PANIC("");
     }
     else
-        PANIC("Unimplemented syscall");
+        ;//PANIC("Unimplemented syscall");
 }
 
 void test_handle(trap_frame_t* regs)
@@ -129,10 +129,30 @@ void test_handle(trap_frame_t* regs)
     acknowledge(&msg);
 }
 
+void gpf_handler(trap_frame_t* regs)
+{
+    printfln("GPF occured at instruction %h", regs->eip);
+    printf("reasons: ");
+
+    printf( (regs->err_code & 1) ? "external " : "internal " );
+    switch((regs->err_code & (3 << 1)) >> 1)
+    {
+        case 0:     printf("GDT "); break;
+        case 2:     printf("LDT "); break;
+        case 1:
+        case 3:     printf("IDT "); break;
+    }
+
+    printfln("selector: %u", (regs->err_code >> 3) & 0x1FFF);
+    PANIC("");
+}
+
 void isr_init()
 {
 	printfln("isr handlers: %h", isr_handlers);
 	memset(isr_handlers, 0, ISR_HANDLERS * sizeof(isr_t));
+
+    isr_register(13, gpf_handler);
 
     isr_register(0x80, syscall_handler);
     isr_register(100, test_handle);

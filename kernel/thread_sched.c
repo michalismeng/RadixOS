@@ -77,12 +77,18 @@ void scheduler_save_thread(TCB* thread, trap_frame_t* current_frame)
 // restores a thread context back to memory as if an interrupt had occured
 virtual_addr_t scheduler_restore_thread(thread_sched_t* scheduler, TCB* thread)
 {
-    virtual_addr_t frame_base = thread->kframe.kernel_esp - 48;
+    virtual_addr_t frame_base;
 
     if(thread->is_kernel)
+    {
+        frame_base = thread->kframe.kernel_esp - 48;
         memcpy(frame_base, &thread->kframe, sizeof(trap_frame_kernel_t));
+    }
     else
+    {
+        frame_base = thread->kframe.kernel_esp - 56;
         memcpy(frame_base, &thread->frame, sizeof(trap_frame_t));
+    }
 
     return frame_base;
 }
@@ -156,6 +162,7 @@ void scheduler_current_execute()
     if(thread == 0)
         PANIC("scheduler received null thread to execute");
 
+
     virt_mem_switch_directory(thread->parent->page_dir);
     
     virtual_addr_t frame_base = scheduler_restore_thread(scheduler, thread);
@@ -183,7 +190,7 @@ void scheduler_current_execute()
             pop %%ds; \
             popal; \
             add $8, %%esp; \
-            iret"::"r"(get_cpu_stack - sizeof(trap_frame_t)):"%esp");   //TODO: get_cpu_stack - sizeof(trap_frame_t) == frame_base ?
+            iret"::"r"(frame_base):"%esp");
     }
 }
 
