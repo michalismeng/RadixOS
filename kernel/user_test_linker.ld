@@ -2,7 +2,7 @@ ENTRY(do_user)
 
 SECTIONS
 {
-	. = 0x600000;
+	. = 4M;
 
     .text : ALIGN(32)
 	{

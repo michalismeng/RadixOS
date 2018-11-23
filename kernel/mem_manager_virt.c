@@ -91,8 +91,7 @@ physical_addr virt_mem_init(pdirectory_t* old_directory)
 
 	pdirectory_t* new_dir = (pdirectory_t*)new_dir_addr;
 
-	// map the directory entry of address 0xC0000000 to point to itself => recursion
-
+	// map the directory entry of address 0xC0000000 to point to the page directory structure => recursion
 	uint32_t index = virt_mem_get_page_table_index(0xC0000000);
 	pd_entry_add_attrib(&new_dir->entries[index], VIRT_MEM_DEFAULT_PDE_FLAGS);
 	pd_entry_set_frame(&new_dir->entries[index], new_dir_addr);
@@ -302,14 +301,22 @@ int virt_mem_is_page_present(virtual_addr_t addr)
 
 physical_addr virt_mem_create_address_space()
 {
-	// pdirectory_t* dir = (pdirectory_t*)phys_mem_alloc_above_1mb();
-	// if (!dir)
-	// 	return 0;
+	pdirectory_t* dir = (pdirectory_t*)phys_mem_alloc_above_1mb();
+	if (!dir)
+		return 0;
 
-	// memset(dir, 0, sizeof(pdirectory_t));
-	// return (physical_addr)dir;
+	if(virt_mem_set_foreign_address_space(virt_mem_get_current_address_space(), virt_mem_get_foreign_address_space(), dir) != ERROR_OK)
+		return 0;
 
-	return 0;
+	pdirectory_t* f_dir = virt_mem_get_foreign_directory();
+	memcpy(f_dir, virt_mem_get_directory(virt_mem_get_current_address_space()), sizeof(pdirectory_t));
+
+	// fix the recursion page table entry of the foreign address space to point to itself
+	pd_entry* pd = virt_mem_get_page_directory_entry(f_dir, virt_mem_get_current_address_space());
+	pd_entry_add_attrib(pd, VIRT_MEM_DEFAULT_PDE_FLAGS);
+	pd_entry_set_frame(pd, dir);
+
+	return (physical_addr)dir;
 }
 
 // performs shallow copy
@@ -330,7 +337,7 @@ uint32_t virt_mem_count_present_tables(pdirectory_t* pdir)
 	{
 		if(pd_entry_is_present(pdir->entries[i]))
 		{
-			// printfln("present table %u at: %h", i,  0xC0000000 + (i << 12));
+			printfln("present table %u at: %h", i,  0xC0000000 + (i << 12));
 			count++;
 		}
 	}
@@ -341,4 +348,13 @@ uint32_t virt_mem_count_present_tables(pdirectory_t* pdir)
 uint32_t virt_mem_get_page_size()
 {
 	return PAGE_SIZE;
+}
+
+error_t virt_mem_set_foreign_address_space(address_space_t current, address_space_t foreign, physical_addr pdir)
+{
+	pd_entry* pd = virt_mem_get_page_directory_entry_by_addr(current, foreign);
+	pd_entry_add_attrib(pd, VIRT_MEM_DEFAULT_PDE_FLAGS);
+	pd_entry_set_frame(pd, pdir);
+
+	return ERROR_OK;
 }

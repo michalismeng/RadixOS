@@ -25,25 +25,25 @@ typedef uint32_t pt_entry;		// every page table entry is 32 bit wide
 // INTERFACE
 
 // set a flag (see enum above) in a pt_entry
-extern void pt_entry_add_attrib(pt_entry* entry, uint32_t attrib);
+void pt_entry_add_attrib(pt_entry* entry, uint32_t attrib);
 
 // unset a flag from a pt_entry
-extern void pt_entry_del_attrib(pt_entry* entry, uint32_t attrib);
+void pt_entry_del_attrib(pt_entry* entry, uint32_t attrib);
 
 // test if attrib is set
-extern int pt_entry_test_attrib(pt_entry* entry, uint32_t attrib);
+int pt_entry_test_attrib(pt_entry* entry, uint32_t attrib);
 
 // set the frame address (physical address space) of a pt_entry
-extern void pt_entry_set_frame(pt_entry* entry, physical_addr address);
+void pt_entry_set_frame(pt_entry* entry, physical_addr address);
 
 // check if entry is present in memory
-extern int pt_entry_is_present(pt_entry entry);
+int pt_entry_is_present(pt_entry entry);
 
 // check if entry is writable
-extern int pt_entry_is_writable(pt_entry entry);
+int pt_entry_is_writable(pt_entry entry);
 
 // get the frame address of the pt_entry
-extern physical_addr pt_entry_get_frame(pt_entry entry);
+physical_addr pt_entry_get_frame(pt_entry entry);
 
 
 #endif

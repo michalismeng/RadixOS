@@ -27,30 +27,30 @@ typedef uint32_t pd_entry;
 // INTERFACE
 
 // sets a flag in the page table entry
-extern void pd_entry_add_attrib(pd_entry* entry, uint32_t attrib);
+void pd_entry_add_attrib(pd_entry* entry, uint32_t attrib);
 
 // clears a flag in the page table entry
-extern void pd_entry_del_attrib(pd_entry* entry, uint32_t attrib);
+void pd_entry_del_attrib(pd_entry* entry, uint32_t attrib);
 
 // checks if the given attribute is set
-extern int pd_entry_test_attrib(pd_entry* entry, uint32_t attrib);
+int pd_entry_test_attrib(pd_entry* entry, uint32_t attrib);
 
 // sets a frame to page table
-extern void pd_entry_set_frame(pd_entry* entry, physical_addr addr);
+void pd_entry_set_frame(pd_entry* entry, physical_addr addr);
 
 // test if page is present
-extern int pd_entry_is_present(pd_entry entry);
+int pd_entry_is_present(pd_entry entry);
 
 // test if directory is user mode
-extern int pd_entry_is_user(pd_entry entry);
+int pd_entry_is_user(pd_entry entry);
 
 // test if directory contains 4mb pages
-extern int pd_entry_is_4mb(pd_entry entry);
+int pd_entry_is_4mb(pd_entry entry);
 
 // test if page is writable
-extern int pd_entry_is_writable(pd_entry entry);
+int pd_entry_is_writable(pd_entry entry);
 
 // get page table entry frame address
-extern struct page_table* pd_entry_get_frame(pd_entry entry);
+struct page_table* pd_entry_get_frame(pd_entry entry);
 
 #endif

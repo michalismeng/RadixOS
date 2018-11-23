@@ -185,7 +185,10 @@ void acpi_irq_handler(trap_frame_t* regs)
 		handler(regs);
 	}
 	else
+    {
 		printfln("Hardware interrupt: %u", regs->int_no);
+        PANIC("");
+    }
 
 	lapic_send_eoi(get_gst()->lapic_base);
 }

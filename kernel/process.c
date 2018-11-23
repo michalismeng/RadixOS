@@ -62,7 +62,6 @@ PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], pi
 
 	new_pcb->pid = pid;
 	new_pcb->parent = parent;
-	new_pcb->threads = 0;
 	new_pcb->page_dir = pdbr;
 	strcpy_s(&new_pcb->name, 16, name);
 	vm_contract_init(&new_pcb->memory_contract);

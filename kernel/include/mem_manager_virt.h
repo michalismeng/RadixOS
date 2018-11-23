@@ -73,6 +73,6 @@ uint32_t virt_mem_get_page_size();
 // returns the number of the page tables that are currently marked as present
 uint32_t virt_mem_count_present_tables(pdirectory_t* pdir);
 
-
+error_t virt_mem_set_foreign_address_space(address_space_t current, address_space_t space, physical_addr pdir);
 
 #endif

@@ -70,8 +70,7 @@ typedef struct process_control_block
 
 	vm_contract_t memory_contract;					// process memory map
 
-    // TODO: Properly initialzie this member when creating threads
-	TCB* threads;									// pointer to list of child threads of the process
+	// TODO: Add children thread pointers (requires changing the thread struct to include more next_thread pointers)
 }PCB;
 
 // initialize process and thread structures - allocate static memory

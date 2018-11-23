@@ -108,20 +108,30 @@ void final_processor_setup()
 	mailbox_t* mbox = thread_alloc_mailbox_static(clock_task, get_gst()->processor_count + get_cpu_id);
 
 	// ! usermode example with elf loading (from memory not from an actual file of course)
-	elf32_ehdr_t* hdr = user_test_bin;	
+	elf32_ehdr_t* hdr = user_test_bin;
 	TCB* user_task = thread_create(get_process(KERNEL_PROCESS_SLOT), hdr->e_entry >> 8, 0xD00000 + 4096, 0, 0, get_cpu_id);
 
-	// setup dummy stack
-	virt_mem_alloc_page_f(0xD00000, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
-	if(elf_load(hdr) != ERROR_OK)
-		PANIC("Could not load elf");
+	physical_addr pa = virt_mem_create_address_space();
+	printfln("creating address space: %h", pa);
 
-	// ClearScreen();
-	// elf_print_metadata(hdr); PANIC("");
+	virt_mem_switch_directory(pa);
+
+	virt_mem_alloc_page_f(1 GB, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
+	virt_mem_get_current_directory()->entries[15] = 15;
+
+	printfln("table 15 value: %u", virt_mem_get_current_directory()->entries[15]);
+
+	virt_mem_switch_directory(get_gst()->BSP_dir);
+
+	printfln("table 15 value: %u", virt_mem_get_current_directory()->entries[15]);
+
+	// if(elf_load(hdr) != ERROR_OK)
+	// 	PANIC("Could not load elf");
+	PANIC("END");
 	
     scheduler_add_ready(scheduler, clock_task);
     scheduler_add_ready(scheduler, idle_thread);
-	scheduler_add_ready(scheduler, user_task);
+	// scheduler_add_ready(scheduler, user_task);
 
 	printfln("starting processor");
 

@@ -9,9 +9,6 @@
 
 #include <ipc/ipc.h>
 
-#include <elf.h>
-// #include <user_test/user_test.h>
-
 extern uint32_t lock;
 
 static void update_system_time()
