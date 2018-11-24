@@ -1,6 +1,6 @@
 #include <ioapic.h>
 
-uint32_t ioapic_read(physical_addr ioapic_base, uint32_t reg)
+uint32_t ioapic_read(physical_addr_t ioapic_base, uint32_t reg)
 {
     uint8_t volatile* base = (uint8_t volatile*)ioapic_base;
     deref32(base + IOAPIC_INDEX) = reg & 0xFF;                  // write to the 32-bit index register
@@ -8,7 +8,7 @@ uint32_t ioapic_read(physical_addr ioapic_base, uint32_t reg)
     return deref32(base + IOAPIC_DATA);
 }
 
-void ioapic_write(physical_addr ioapic_base, uint32_t reg, uint32_t val)
+void ioapic_write(physical_addr_t ioapic_base, uint32_t reg, uint32_t val)
 {
     uint8_t volatile* base = (uint8_t volatile*)ioapic_base;
     deref32(base + IOAPIC_INDEX) = reg & 0xFF;                  // write to the 32-bit index register
@@ -16,7 +16,7 @@ void ioapic_write(physical_addr ioapic_base, uint32_t reg, uint32_t val)
     deref32(base + IOAPIC_DATA) = val;
 }
 
-void ioapic_map_irq(physical_addr ioapic_base, uint32_t apic_id, uint8_t irq, uint8_t vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t int_mode)
+void ioapic_map_irq(physical_addr_t ioapic_base, uint32_t apic_id, uint8_t irq, uint8_t vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t int_mode)
 {
     // each redirection register is 64-bits wide, so we split in two 32-bit data
     uint32_t redirect_low = IOAPIC_REDTBL0_LOW + irq * 2;

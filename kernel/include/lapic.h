@@ -92,25 +92,25 @@ enum LAPIC_LVT_DELIVERY
 };
 
 // enables the lapic so that it can process/send interrupts
-void lapic_enable(physical_addr base_addr);
+void lapic_enable(physical_addr_t base_addr);
 
 // returns the id of the lapic 
-uint32_t lapic_get_id(physical_addr base_addr);
+uint32_t lapic_get_id(physical_addr_t base_addr);
 
 // sends the End of Interrupt command to the lapic
-void lapic_send_eoi(physical_addr base_addr);
+void lapic_send_eoi(physical_addr_t base_addr);
 
 // send inter-processor interrupt
-void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t destination_shorthand);
+void lapic_send_ipi(physical_addr_t base_addr, uint8_t target_id, uint8_t target_vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t destination_shorthand);
 
 // send a standard IPI to a single core (delivery_mode = FIXED, destination_mode = PHYSICAL, destination_shorthand = TARGET)
-void lapic_send_ipi_std(physical_addr base_addr, uint8_t target_id, uint8_t target_vector);
+void lapic_send_ipi_std(physical_addr_t base_addr, uint8_t target_id, uint8_t target_vector);
 
 // send standard IPI to all but current core
-void lapic_send_ipi_to_others(physical_addr base_addr, uint8_t target_vector);
+void lapic_send_ipi_to_others(physical_addr_t base_addr, uint8_t target_vector);
 
 // calibrates the lapic timer so that it generates an interrupt every given period (calibration uses the PIT - target_period in ms)
-void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint8_t irq_vector);
+void lapic_calibrate_timer(physical_addr_t base_addr, uint32_t target_period, uint8_t irq_vector);
 
 // returns the number of milliseconds passed since the last calibration
 volatile uint32_t lapic_millis();

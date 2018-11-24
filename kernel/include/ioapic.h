@@ -56,12 +56,12 @@ enum IOAPIC_TRIGGER_MODE
 // Destination field: Physical Destination allows only bits 56-59 for the cpu ID (only 16 processors are addressable)
 
 // read data from register 'reg'
-uint32_t ioapic_read(physical_addr ioapic_base, uint32_t reg);
+uint32_t ioapic_read(physical_addr_t ioapic_base, uint32_t reg);
 
 // write data to register 'reg'
-void ioapic_write(physical_addr ioapic_base, uint32_t reg, uint32_t val);
+void ioapic_write(physical_addr_t ioapic_base, uint32_t reg, uint32_t val);
 
 // maps the given 'irq' to the given 'vector' number that will be routed to the 'apic_id' processor (int_mode combines trigger and polarity of the interrupt)
-void ioapic_map_irq(physical_addr ioapic_base, uint32_t apic_id, uint8_t irq, uint8_t vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t int_mode);
+void ioapic_map_irq(physical_addr_t ioapic_base, uint32_t apic_id, uint8_t irq, uint8_t vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t int_mode);
 
 #endif

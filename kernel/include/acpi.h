@@ -25,7 +25,7 @@ typedef struct rsdp_descriptor_struct_t
     uint8_t csum;               // the checksum to ensure correctness
     uint8_t oem_id[6];          
     uint8_t revision;           // the acpi revision (1, 2 ...)
-    physical_addr rsdt_addr;    // a pointer to the root system descriptor table
+    physical_addr_t rsdt_addr;    // a pointer to the root system descriptor table
 
 } rsdp_descriptor_t;
 
@@ -54,7 +54,7 @@ typedef struct rsdt_descriptor_struct_t
 typedef struct madt_descriptor_struct_t
 {
 	acpi_dt_header_t acpi_header;
-	physical_addr lapic_addr;			// local APIC MMIO address
+	physical_addr_t lapic_addr;			// local APIC MMIO address
 	uint32_t flags;						// if bit 1 is set => legacy PIC is installed so mask all of its interrupts
 
 } madt_descriptor_t;
@@ -84,7 +84,7 @@ typedef struct madt_ioapic_descriptor_struct_t
 
 	uint8_t ioapic_id;					// the id of the ioapic
 	uint8_t resv0;
-	physical_addr ioapic_addr;			// the physical address of the ioapic
+	physical_addr_t ioapic_addr;			// the physical address of the ioapic
 	uint32_t global_interrupt_base;
 
 } madt_ioapic_descriptor_t;

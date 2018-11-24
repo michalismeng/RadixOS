@@ -50,26 +50,34 @@ void process_init()
 	}
 }
 
-PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], pid_t pid)
+PCB* process_create_static(PCB* parent, physical_addr_t pdir, uint8_t name[16], pid_t pid)
 {
-	// TODO: add spinlock protection
+	acquire_spinlock(&ps_lock);
 	// fail when the slot is already occupied
 	if(!(process_slots[pid].flags & PROCESS_SLOT_EMPTY))
+	{
+		release_spinlock(&ps_lock);
 		return 0;
+	}
 
 	PCB* new_pcb = &process_slots[pid];
 	new_pcb->flags = PROCESS_NEW;
 
+	release_spinlock(&ps_lock);
+
 	new_pcb->pid = pid;
 	new_pcb->parent = parent;
-	new_pcb->page_dir = pdbr;
+
+	new_pcb->address_space.p_page_directory = pdir;
+	new_pcb->address_space.lock = 0;
+	
 	strcpy_s(&new_pcb->name, 16, name);
 	vm_contract_init(&new_pcb->memory_contract);
 
 	return new_pcb;
 }
 
-PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t name[16])
+PCB* process_create(PCB* parent, physical_addr_t pdbr, uint8_t name[16])
 {
 	// find an empty slot in the process slot table
 	PCB* new_pcb = 0;

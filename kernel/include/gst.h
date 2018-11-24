@@ -16,13 +16,13 @@ typedef struct global_system_table_struct_t
 {
     uint32_t processor_count;
     uint32_t ioapic_count;
-    physical_addr lapic_base;
-    physical_addr ioapic_base;
+    physical_addr_t lapic_base;
+    physical_addr_t ioapic_base;
 
     gdt_ptr_t gdtr;                             // gdtr base (since gdt is shared among processors)
     idt_ptr_t idtr;                             // idtr base
 
-    physical_addr BSP_dir;                      // BSP kernel page directory that will be used by the APs
+    physical_addr_t BSP_dir;                      // BSP kernel page directory that will be used by the APs
 
     rsdp_descriptor_t* RSDP_base;               // base of the RSDP acpi table
 

@@ -17,7 +17,7 @@ int pd_entry_test_attrib(pd_entry* e, uint32_t attrib)
 	return ((*e & attrib) == attrib);
 }
 
-void pd_entry_set_frame(pd_entry* e, physical_addr addr)
+void pd_entry_set_frame(pd_entry* e, physical_addr_t addr)
 {
 	*e = (*e & ~I86_PDE_FRAME) | addr;
 }

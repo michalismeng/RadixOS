@@ -47,7 +47,7 @@ virtual_addr_t setup_processor_common_stack(uint8_t cpu_id)
 }
 
 // startup the processor connected to 'lapic_id' and set it to execute at address 'exec_base'
-void processor_startup(uint32_t lapic_id, physical_addr exec_base)
+void processor_startup(uint32_t lapic_id, physical_addr_t exec_base)
 {
 	// implement intel protocol for processor boot 
 		
@@ -111,10 +111,12 @@ void final_processor_setup()
 	elf32_ehdr_t* hdr = user_test_bin;
 	TCB* user_task = thread_create(get_process(KERNEL_PROCESS_SLOT), hdr->e_entry >> 8, 0xD00000 + 4096, 0, 0, get_cpu_id);
 
-	physical_addr pa = virt_mem_create_address_space();
+	physical_addr_t pa = virt_mem_create_address_space();
 	printfln("creating address space: %h", pa);
 
 	virt_mem_switch_directory(pa);
+
+	printfln("pa at: %h", pd_entry_get_frame(*virt_mem_get_page_directory_entry_by_addr(virt_mem_get_self_recursive_table(), virt_mem_get_foreign_recursive_table())));
 
 	virt_mem_alloc_page_f(1 GB, VIRT_MEM_DEFAULT_PTE_FLAGS | I86_PTE_USER);
 	virt_mem_get_current_directory()->entries[15] = 15;

@@ -34,7 +34,7 @@ void pt_entry_del_attrib(pt_entry* entry, uint32_t attrib);
 int pt_entry_test_attrib(pt_entry* entry, uint32_t attrib);
 
 // set the frame address (physical address space) of a pt_entry
-void pt_entry_set_frame(pt_entry* entry, physical_addr address);
+void pt_entry_set_frame(pt_entry* entry, physical_addr_t address);
 
 // check if entry is present in memory
 int pt_entry_is_present(pt_entry entry);
@@ -43,7 +43,7 @@ int pt_entry_is_present(pt_entry entry);
 int pt_entry_is_writable(pt_entry entry);
 
 // get the frame address of the pt_entry
-physical_addr pt_entry_get_frame(pt_entry entry);
+physical_addr_t pt_entry_get_frame(pt_entry entry);
 
 
 #endif

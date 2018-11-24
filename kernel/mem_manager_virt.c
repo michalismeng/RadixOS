@@ -4,36 +4,22 @@
 #include <utility.h>
 #include <gst.h>
 
-// private data
+// private functions and data
 
 // when fault occured the page was present in memory
-int page_fault_error_is_page_present(uint32_t error)
-{
-	return (error & 0x1);
-}
+int page_fault_error_is_page_present(uint32_t error) { return (error & 0x1); }
 
 // the fault occured due to a write attempt
-int page_fault_error_is_write(uint32_t error)
-{
-	return (error & 0x2);
-}
+int page_fault_error_is_write(uint32_t error) { return (error & 0x2); }
 
 // the fault occured while the cpu was in CPL=3
-int page_fault_error_is_user(uint32_t error)
-{
-	return (error & 0x4);
-}
+int page_fault_error_is_user(uint32_t error) { return (error & 0x4); }
 
 int32_t page_fault_handler(trap_frame_t* regs)
 {
 	uint32_t cr2;
 
-    asm volatile (
-        "mov %%cr2, %%eax\n\t"
-        "mov %%eax, %0\n\t"
-		: "=m" (cr2)
-    	: /* no input */
-    	: "%eax");
+    asm volatile ("mov %%cr2, %%eax; mov %%eax, %0" : "=m" (cr2) :: "%eax");
 
 	printfln("page fault occured at: %h, eip: %h", cr2, regs->eip);
 	printf("reason: page ");
@@ -43,29 +29,53 @@ int32_t page_fault_handler(trap_frame_t* regs)
 	printf(regs->err_code & 8 ? "for resved bit  " : "");
 	printfln(regs->err_code & 16 ? "instr fetch " : "not instr fetch ");
 
-	// printfln("page phys mem: %h", virt_mem_get_phys_addr(cr2));
-
-	printfln("");
-	trap_frame_print(regs);
+	// printfln("");
+	// trap_frame_print(regs);
 
     if(page_fault_error_is_user(regs->err_code))
         PANIC("\nSIGSEGV");
+	// else
+		// PANIC("KERNEL ERROR! BSOD");
 
-
-	virt_mem_map_page(virt_mem_get_current_address_space(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
+	virt_mem_map_page(virt_mem_get_self_recursive_table(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
 
 	return 0;
 }
 
+// used to properly clone the dummy directory created by the initializer after it gives control to the kernel
+// this function is not for general purpose
+physical_addr_t virt_mem_deep_clone_directory(pdirectory_t* dir)
+{
+	pdirectory_t* new_dir = (pdirectory_t*)phys_mem_alloc_above_1mb();
+	memcpy(new_dir, dir, PAGE_SIZE);
+
+	for(int i = 0; i < VIRT_MEM_PAGES_PER_DIR; i++)
+	{
+		pd_entry* new_e = &new_dir->entries[i];
+
+		// if the table is present
+		if(pd_entry_is_present(*new_e))
+		{
+			ptable_t* new_table = (ptable_t*)phys_mem_alloc_above_1mb();	// allocate new space for the table entries
+			ptable_t* old_table = pd_entry_get_frame(*new_e);				// the page table in the old directory (we used the directory's frame pointer)
+			memcpy(new_table, old_table, PAGE_SIZE);
+
+			pd_entry_set_frame(new_e, (physical_addr_t)new_table);						// set the new table frame for our new directory entry
+		}
+	}
+
+	return (physical_addr_t)new_dir;
+}
+
 // creates a page table for the dir address space
-error_t virt_mem_create_table(address_space_t base, virtual_addr_t addr, uint32_t flags)
+error_t virt_mem_create_table(vrec_table_t base, virtual_addr_t addr, uint32_t flags)
 {
 	pdirectory_t* pdir = virt_mem_get_directory(base);
 	pd_entry* entry = virt_mem_get_page_directory_entry(pdir, addr);
 	if (!entry)
 		return ERROR_OCCUR;
 
-	physical_addr table_phys = phys_mem_alloc_above_1mb();
+	physical_addr_t table_phys = phys_mem_alloc_above_1mb();
 
 	if (!table_phys)
 		return ERROR_OCCUR;		// not enough memory!!
@@ -79,12 +89,19 @@ error_t virt_mem_create_table(address_space_t base, virtual_addr_t addr, uint32_
 	return ERROR_OK;
 }
 
+void virt_mem_set_recursive_table(vrec_table_t current, vrec_table_t target, physical_addr_t pdir)
+{
+	pd_entry* pd = virt_mem_get_page_directory_entry_by_addr(current, target);
+	pd_entry_add_attrib(pd, VIRT_MEM_DEFAULT_PDE_FLAGS);
+	pd_entry_set_frame(pd, pdir);
+}
+
 // public functions
 
-physical_addr virt_mem_init(pdirectory_t* old_directory)
+physical_addr_t virt_mem_init(pdirectory_t* old_directory)
 {
-	// TODO: Here we assume new_dir_addr is identity mapped so we can directly access it.
-	physical_addr new_dir_addr = virt_mem_deep_clone_directory(old_directory);
+	// Here we assume new_dir_addr is identity mapped so we can directly access it.
+	physical_addr_t new_dir_addr = virt_mem_deep_clone_directory(old_directory);
 
 	if(new_dir_addr == 0)
 		return 0;
@@ -92,6 +109,7 @@ physical_addr virt_mem_init(pdirectory_t* old_directory)
 	pdirectory_t* new_dir = (pdirectory_t*)new_dir_addr;
 
 	// map the directory entry of address 0xC0000000 to point to the page directory structure => recursion
+	// we do this manually since there is not a previous self recursive mapping
 	uint32_t index = virt_mem_get_page_table_index(0xC0000000);
 	pd_entry_add_attrib(&new_dir->entries[index], VIRT_MEM_DEFAULT_PDE_FLAGS);
 	pd_entry_set_frame(&new_dir->entries[index], new_dir_addr);
@@ -102,7 +120,7 @@ physical_addr virt_mem_init(pdirectory_t* old_directory)
 	return new_dir_addr;
 }
 
-error_t virt_mem_map_page(address_space_t base, physical_addr phys, virtual_addr_t virt, uint32_t flags)
+error_t virt_mem_map_page(vrec_table_t base, physical_addr_t phys, virtual_addr_t virt, uint32_t flags)
 {
 	// our goal is to get the pt_entry indicated by virt and set its frame to phys.
 	pdirectory_t* pdir = virt_mem_get_directory(base);
@@ -131,7 +149,7 @@ error_t virt_mem_map_page(address_space_t base, physical_addr phys, virtual_addr
 	return ERROR_OK;
 }
 
-error_t virt_mem_unmap_page(address_space_t base, virtual_addr_t virt)
+error_t virt_mem_unmap_page(vrec_table_t base, virtual_addr_t virt)
 {
 	ptable_t* table = virt_mem_get_page_table(base, virt);
 	pt_entry* page = virt_mem_get_page_table_entry(table, virt);
@@ -150,11 +168,11 @@ error_t virt_mem_alloc_page_f(virtual_addr_t addr, uint32_t flags)
 {
 	// assume that 'base' is not already allocated
 
-	physical_addr phys = phys_mem_alloc_above_1mb();
+	physical_addr_t phys = phys_mem_alloc_above_1mb();
 	if (phys == 0)
 		return ERROR_OCCUR;
 
-	if (virt_mem_map_page(virt_mem_get_current_address_space(), phys, addr, flags) != ERROR_OK)
+	if (virt_mem_map_page(virt_mem_get_self_recursive_table(), phys, addr, flags) != ERROR_OK)
 		return ERROR_OCCUR;
 
 	// TODO: TLB shootdown
@@ -164,11 +182,11 @@ error_t virt_mem_alloc_page_f(virtual_addr_t addr, uint32_t flags)
 
 error_t virt_mem_free_page(virtual_addr_t addr)
 {
-	physical_addr phys = virt_mem_get_phys_addr(addr);
+	physical_addr_t phys = virt_mem_get_phys_addr(addr);
 	if(phys == 0)
 		return ERROR_OCCUR;
 	
-	if(virt_mem_unmap_page(virt_mem_get_current_address_space(), addr) != ERROR_OK)
+	if(virt_mem_unmap_page(virt_mem_get_self_recursive_table(), addr) != ERROR_OK)
 		return ERROR_OCCUR;
 
 	if(phys_mem_dealloc(phys) != ERROR_OK)		// TODO: Add error checking
@@ -179,7 +197,7 @@ error_t virt_mem_free_page(virtual_addr_t addr)
 	return ERROR_OK;
 }
 
-error_t virt_mem_switch_directory(physical_addr new_dir)
+error_t virt_mem_switch_directory(physical_addr_t new_dir)
 {
 	// if the page directory hasn't change do not flush cr3 as such an action is a performance hit
 	// if (pmmngr_get_PDBR() == pdbr)
@@ -188,29 +206,6 @@ error_t virt_mem_switch_directory(physical_addr new_dir)
 	asm ("movl %0, %%eax; movl %%eax, %%cr3;"::"r"(new_dir):"%eax");
 
 	return ERROR_OK;
-}
-
-physical_addr virt_mem_deep_clone_directory(pdirectory_t* dir)
-{
-	pdirectory_t* new_dir = (pdirectory_t*)phys_mem_alloc_above_1mb();
-	memcpy(new_dir, dir, PAGE_SIZE);
-
-	for(int i = 0; i < VIRT_MEM_PAGES_PER_DIR; i++)
-	{
-		pd_entry* new_e = &new_dir->entries[i];
-
-		// if the table is present
-		if(pd_entry_is_present(*new_e))
-		{
-			ptable_t* new_table = (ptable_t*)phys_mem_alloc_above_1mb();	// allocate new space for the table entries
-			ptable_t* old_table = pd_entry_get_frame(*new_e);				// the page table in the old directory (we used the directory's frame pointer)
-			memcpy(new_table, old_table, PAGE_SIZE);
-
-			pd_entry_set_frame(new_e, (physical_addr)new_table);						// set the new table frame for our new directory entry
-		}
-	}
-
-	return (physical_addr)new_dir;
 }
 
 void virt_mem_flush_TLB_entry(virtual_addr_t addr)
@@ -222,7 +217,7 @@ void virt_mem_flush_TLB_entry(virtual_addr_t addr)
 error_t virt_mem_ptable_clear(ptable_t* table)
 {
 	memset(table, 0, sizeof(ptable_t));
-	phys_mem_dealloc((physical_addr)table);
+	phys_mem_dealloc((physical_addr_t)table);
 
 	return ERROR_OK;
 }
@@ -237,12 +232,12 @@ error_t virt_mem_pdirectory_clear(pdirectory_t* pdir)
 	}
 
 	memset(pdir, 0, sizeof(pdirectory_t));
-	phys_mem_dealloc((physical_addr)pdir);		// TODO: This should be physical address, not virtual
+	phys_mem_dealloc((physical_addr_t)pdir);		// TODO: This should be physical address, not virtual
 
 	return ERROR_OK;
 }
 
-void virt_mem_print(address_space_t base)
+void virt_mem_print(vrec_table_t base)
 {
 	// pdirectory_t* dir = virt_mem_get_directory(base);
 	// for (int i = 0; i < 1024; i++)
@@ -251,7 +246,7 @@ void virt_mem_print(address_space_t base)
 	// 		continue;
 
 	// 	ptable_t* table = virt_mem_get_page_table(base, i);
-	// 	physical_addr taddr = pd_entry_get_frame(dir->entries[i]);
+	// 	physical_addr_t taddr = pd_entry_get_frame(dir->entries[i]);
 
 	// 	printfln("table %i is present at %h / %h", i, taddr, table);
 
@@ -265,18 +260,18 @@ void virt_mem_print(address_space_t base)
 	// }
 }
 
-physical_addr virt_mem_get_phys_addr(virtual_addr_t addr)
+physical_addr_t virt_mem_get_phys_addr(virtual_addr_t addr)
 {
 	pd_entry* e = virt_mem_get_page_directory_entry(virt_mem_get_current_directory(), addr);
 	if (!e)
 		return 0;
 
-	ptable_t* table = virt_mem_get_page_table(virt_mem_get_current_address_space(), addr);
+	ptable_t* table = virt_mem_get_page_table(virt_mem_get_self_recursive_table(), addr);
 	pt_entry* page = virt_mem_get_page_table_entry(table, addr);
 	if (!page)
 		return 0;
 
-	physical_addr p_addr = pt_entry_get_frame(*page);
+	physical_addr_t p_addr = pt_entry_get_frame(*page);
 
 	p_addr += (addr & 0xfff);		// add in-page offset
 	return p_addr;
@@ -288,7 +283,7 @@ int virt_mem_is_page_present(virtual_addr_t addr)
 	if (!e || !pd_entry_is_present(*e))
 		return 0;
 
-	ptable_t* table = virt_mem_get_page_table(virt_mem_get_current_address_space(), addr);
+	ptable_t* table = virt_mem_get_page_table(virt_mem_get_self_recursive_table(), addr);
 	if (!table)
 		return 0;
 
@@ -299,24 +294,23 @@ int virt_mem_is_page_present(virtual_addr_t addr)
 	return 1;
 }
 
-physical_addr virt_mem_create_address_space()
+physical_addr_t virt_mem_create_address_space()
 {
 	pdirectory_t* dir = (pdirectory_t*)phys_mem_alloc_above_1mb();
 	if (!dir)
 		return 0;
 
-	if(virt_mem_set_foreign_address_space(virt_mem_get_current_address_space(), virt_mem_get_foreign_address_space(), dir) != ERROR_OK)
-		return 0;
+	printfln("new directory at: %h", dir);
+
+	virt_mem_set_recursive_table(virt_mem_get_self_recursive_table(), virt_mem_get_foreign_recursive_table(), dir);
 
 	pdirectory_t* f_dir = virt_mem_get_foreign_directory();
-	memcpy(f_dir, virt_mem_get_directory(virt_mem_get_current_address_space()), sizeof(pdirectory_t));
+	memcpy(f_dir, virt_mem_get_directory(virt_mem_get_self_recursive_table()), sizeof(pdirectory_t));
 
 	// fix the recursion page table entry of the foreign address space to point to itself
-	pd_entry* pd = virt_mem_get_page_directory_entry(f_dir, virt_mem_get_current_address_space());
-	pd_entry_add_attrib(pd, VIRT_MEM_DEFAULT_PDE_FLAGS);
-	pd_entry_set_frame(pd, dir);
+	virt_mem_set_recursive_table(virt_mem_get_foreign_recursive_table(), virt_mem_get_self_recursive_table(), dir);
 
-	return (physical_addr)dir;
+	return (physical_addr_t)dir;
 }
 
 // performs shallow copy
@@ -348,13 +342,4 @@ uint32_t virt_mem_count_present_tables(pdirectory_t* pdir)
 uint32_t virt_mem_get_page_size()
 {
 	return PAGE_SIZE;
-}
-
-error_t virt_mem_set_foreign_address_space(address_space_t current, address_space_t foreign, physical_addr pdir)
-{
-	pd_entry* pd = virt_mem_get_page_directory_entry_by_addr(current, foreign);
-	pd_entry_add_attrib(pd, VIRT_MEM_DEFAULT_PDE_FLAGS);
-	pd_entry_set_frame(pd, pdir);
-
-	return ERROR_OK;
 }

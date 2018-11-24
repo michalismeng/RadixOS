@@ -79,7 +79,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 	for(; (uint32_t)entry < mbd->mmap_addr + mbd->mmap_length;)
 	{
 		if(entry->type == 1)		// this is available memory
-			if(phys_mem_free_region((physical_addr)entry->addr, (uint32_t)entry->len - (uint32_t)entry->len % 4096) != ERROR_OK)
+			if(phys_mem_free_region((physical_addr_t)entry->addr, (uint32_t)entry->len - (uint32_t)entry->len % 4096) != ERROR_OK)
 				PANIC("Could not insert region into mmb");
 
 		entry = (uint32_t)entry + entry->size + sizeof(entry->size);
@@ -98,7 +98,7 @@ void kernel_entry(multiboot_info_t* mbd, pdirectory_t* page_dir)
 
 	// initialize the virtual memory manager
 
-	physical_addr pdir = virt_mem_init(page_dir);
+	physical_addr_t pdir = virt_mem_init(page_dir);
 	get_gst()->BSP_dir = pdir;
 	
     ClearScreen();

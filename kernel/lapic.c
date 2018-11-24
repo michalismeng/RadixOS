@@ -11,7 +11,7 @@
 //     PANIC("");
 // }
 
-void lapic_enable(physical_addr base_addr)
+void lapic_enable(physical_addr_t base_addr)
 {
     volatile uint32_t val = reg_readl(base_addr, LAPIC_SPURIOUS_INTERRUPT);
 
@@ -28,28 +28,28 @@ void lapic_enable(physical_addr base_addr)
     }   
 } 
 
-uint32_t lapic_get_id(physical_addr base_addr)
+uint32_t lapic_get_id(physical_addr_t base_addr)
 {
     return reg_readl(base_addr, LAPIC_ID);
 }
 
-void lapic_send_eoi(physical_addr base_addr)
+void lapic_send_eoi(physical_addr_t base_addr)
 {
     // write the value of 0 to the EOI register
     reg_writel(base_addr, LAPIC_EOI, 1);
 }
 
-void lapic_send_ipi_std(physical_addr base_addr, uint8_t target_id, uint8_t target_vector)
+void lapic_send_ipi_std(physical_addr_t base_addr, uint8_t target_id, uint8_t target_vector)
 {
     lapic_send_ipi(base_addr, target_id, target_vector, LAPIC_DELIVERY_FIXED, LAPIC_DESTINATION_PHYSICAL, LAPIC_DESTINATION_TARGET);
 }
 
-void lapic_send_ipi_to_others(physical_addr base_addr, uint8_t target_vector)
+void lapic_send_ipi_to_others(physical_addr_t base_addr, uint8_t target_vector)
 {
     lapic_send_ipi(base_addr, 0, target_vector, LAPIC_DELIVERY_FIXED, LAPIC_DESTINATION_ALL_BUT_SELF, LAPIC_DESTINATION_TARGET);
 }
 
-void lapic_send_ipi(physical_addr base_addr, uint8_t target_id, uint8_t target_vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t destination_shorthand)
+void lapic_send_ipi(physical_addr_t base_addr, uint8_t target_id, uint8_t target_vector, uint32_t delivery_mode, uint32_t destination_mode, uint32_t destination_shorthand)
 {
     // wait until there are no pending IPIs
     while(reg_readl(base_addr, LAPIC_ICR_LOW) & LAPIC_ICR_PENDING);
@@ -80,7 +80,7 @@ void lapic_timer_callback(trap_frame_t* regs)
     per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);
 }
 
-void lapic_calibrate_timer(physical_addr base_addr, uint32_t target_period, uint8_t irq_vector)
+void lapic_calibrate_timer(physical_addr_t base_addr, uint32_t target_period, uint8_t irq_vector)
 {
     // save the requested period
     per_cpu_write(PER_CPU_OFFSET(lapic_period), target_period);

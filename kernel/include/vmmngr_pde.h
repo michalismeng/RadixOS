@@ -36,7 +36,7 @@ void pd_entry_del_attrib(pd_entry* entry, uint32_t attrib);
 int pd_entry_test_attrib(pd_entry* entry, uint32_t attrib);
 
 // sets a frame to page table
-void pd_entry_set_frame(pd_entry* entry, physical_addr addr);
+void pd_entry_set_frame(pd_entry* entry, physical_addr_t addr);
 
 // test if page is present
 int pd_entry_is_present(pd_entry entry);

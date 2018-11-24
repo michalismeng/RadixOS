@@ -77,7 +77,7 @@ uint32_t mmap_first_free(uint32_t blk_index)
 
 // interface functions
 
-void phys_mem_init(uint32_t size, physical_addr base)
+void phys_mem_init(uint32_t size, physical_addr_t base)
 {
 	// No locks required here
 	
@@ -139,7 +139,7 @@ error_t phys_mem_free_region(uint32_t base, uint32_t length)
 	return ERROR_OK;
 }
 
-physical_addr phys_mem_alloc_above(physical_addr addr)
+physical_addr_t phys_mem_alloc_above(physical_addr_t addr)
 {
 	if (phys_mem_get_free_blocks_count() <= 0)		// out of memory
 	{
@@ -158,7 +158,7 @@ physical_addr phys_mem_alloc_above(physical_addr addr)
 
 	mmap_set(frame);		// here we set directly without mmap_test as this is done in mmap_first_free
 
-	physical_addr ret_addr = frame * PHYS_MEM_BLOCK_SIZE;
+	physical_addr_t ret_addr = frame * PHYS_MEM_BLOCK_SIZE;
 	phys_mem_used_blocks++;
 
 	release_spinlock(&phys_mem_lock);
@@ -166,17 +166,17 @@ physical_addr phys_mem_alloc_above(physical_addr addr)
 	return ret_addr;
 }
 
-physical_addr phys_mem_alloc()
+physical_addr_t phys_mem_alloc()
 {
 	return phys_mem_alloc_above(0);
 }
 
-physical_addr phys_mem_alloc_above_1mb()
+physical_addr_t phys_mem_alloc_above_1mb()
 {
 	return phys_mem_alloc_above(0x100000);
 }
 
-error_t phys_mem_dealloc(physical_addr block)
+error_t phys_mem_dealloc(physical_addr_t block)
 {
 	int frame = block / PHYS_MEM_BLOCK_SIZE;
 

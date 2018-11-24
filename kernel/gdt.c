@@ -18,7 +18,7 @@ void gdt_set_gate(gdt_entry_t* gdt_base, uint16_t num, uint32_t base, uint32_t l
 	gdt_base[num].access = access | (1 << 7) | (1 << 4);		// OR with Present and always1 bit
 }
 
-void gdtr_install(physical_addr gdt_base, uint32_t count, gdt_ptr_t* gdtr)
+void gdtr_install(physical_addr_t gdt_base, uint32_t count, gdt_ptr_t* gdtr)
 {
 	gdtr->base = (uint32_t)gdt_base;
 	gdtr->limit = count * sizeof(gdt_entry_t) - 1;

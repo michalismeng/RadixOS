@@ -19,7 +19,7 @@ uint8_t sum(void* base, uint32_t length)
 }
 
 // search for 'length' bytes beginning from base to find a valid RSDP struct
-rsdp_descriptor_t* rsdp_find_in(physical_addr base, uint32_t length)
+rsdp_descriptor_t* rsdp_find_in(physical_addr_t base, uint32_t length)
 {
     // search at a 16-byte boundary (assume base is well-aligned)
     for(uint32_t i = 0; i < length; i += 16)
@@ -163,7 +163,7 @@ int rsdp_first_parse(rsdp_descriptor_t* rsdp)
 
     // map the page for usage
     if(!virt_mem_is_page_present((uint32_t)rsdt & (~0xfff)))
-        virt_mem_map_page(virt_mem_get_current_address_space(), (uint32_t)rsdt & (~0xfff), (uint32_t)rsdt & (~0xfff), VIRT_MEM_DEFAULT_PTE_FLAGS);
+        virt_mem_map_page(virt_mem_get_self_recursive_table(), (uint32_t)rsdt & (~0xfff), (uint32_t)rsdt & (~0xfff), VIRT_MEM_DEFAULT_PTE_FLAGS);
 
 	uint32_t entries = (rsdt->acpi_header.length - sizeof(acpi_dt_header_t)) / 4;
 

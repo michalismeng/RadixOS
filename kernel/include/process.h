@@ -63,7 +63,7 @@ typedef struct process_control_block
 {
 	process_flags_t flags;							// process flags
 	pid_t pid;										// unique process id that correspons to the process' index in the process table
-	physical_addr page_dir;							// physical address of the page directory
+	address_space_t address_space;					// address space for this process (the page directory)
 	struct process_control_block* parent;			// parent PCB that created us.
 
 	uint8_t name[16];								// name of the process
@@ -77,10 +77,10 @@ typedef struct process_control_block
 void process_init();
 
 // create a process statically (try to acquire the specified slot in the table)
-PCB* process_create_static(PCB* parent, physical_addr pdbr, uint8_t name[16], pid_t pid);
+PCB* process_create_static(PCB* parent, physical_addr_t pdir, uint8_t name[16], pid_t pid);
 
 // create a process dynamically (find an empty slot in the table)
-PCB* process_create(PCB* parent, physical_addr pdbr, uint8_t name[16]);
+PCB* process_create(PCB* parent, physical_addr_t pdir, uint8_t name[16]);
 
 // get a process by its slot id
 PCB* get_process(pid_t pid);

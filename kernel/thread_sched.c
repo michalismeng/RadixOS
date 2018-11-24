@@ -163,7 +163,7 @@ void scheduler_current_execute()
         PANIC("scheduler received null thread to execute");
 
 
-    virt_mem_switch_directory(thread->parent->page_dir);
+    virt_mem_switch_directory(thread->parent->address_space.p_page_directory);
     
     virtual_addr_t frame_base = scheduler_restore_thread(scheduler, thread);
 

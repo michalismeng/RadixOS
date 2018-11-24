@@ -14,19 +14,19 @@
 #define VIRT_MEM_DEFAULT_PDE_FLAGS I86_PDE_PRESENT | I86_PDE_WRITABLE	// default flags for page tables.
 #define VIRT_MEM_DEFAULT_PTE_FLAGS I86_PTE_PRESENT | I86_PTE_WRITABLE	// default flags for page entries.
 
-// USEFUL DATA CHAIN cr3 -> pdirectory -> (PAGE_DIR_INDEX(v_addr)) -> pd_entry -> (PAGE_GET_PHYSICAL_ADDR(pd_entry)) -> ptable
-//					 ptable -> (PAGE_TABLE_INDEX(v_addr)) -> pt_entry -> (PAGE_GET_PHYSICAL_ADDR(pt_entry)) -> physical address
+// USEFUL DATA CHAIN cr3 -> pdirectory -> (PAGE_DIR_INDEX(v_addr)) -> pd_entry -> (PAGE_GET_physical_addr_t(pd_entry)) -> ptable
+//					 ptable -> (PAGE_TABLE_INDEX(v_addr)) -> pt_entry -> (PAGE_GET_physical_addr_t(pt_entry)) -> physical address
 
 // INTERFACE
 
 // initializes the virtual memory manager given the dummy directory created by the initializer 
-physical_addr virt_mem_init(pdirectory_t* old_directory);
+physical_addr_t virt_mem_init(pdirectory_t* old_directory);
 
 // maps the virtual address given to the physical address given
-error_t virt_mem_map_page(address_space_t base, physical_addr phys, virtual_addr_t virt, uint32_t flags);
+error_t virt_mem_map_page(vrec_table_t base, physical_addr_t phys, virtual_addr_t virt, uint32_t page_flags);
 
 // unmaps the virtual address given from its associated physical address
-error_t virt_mem_unmap_page(address_space_t base, virtual_addr_t virt);
+error_t virt_mem_unmap_page(vrec_table_t base, virtual_addr_t virt);
 
 // allocates a virtual page with the default flags
 error_t virt_mem_alloc_page(virtual_addr_t addr);
@@ -38,10 +38,10 @@ error_t virt_mem_alloc_page_f(virtual_addr_t addr, uint32_t flags);
 error_t virt_mem_free_page(virtual_addr_t addr);
 
 // switch page directory
-error_t virt_mem_switch_directory(physical_addr pdbr);
+error_t virt_mem_switch_directory(physical_addr_t pdbr);
 
 // copies all the entries of a directory and returns the physical address of the new one
-physical_addr virt_mem_deep_clone_directory(pdirectory_t* dir);
+physical_addr_t virt_mem_deep_clone_directory(pdirectory_t* dir);
 
 // flush a cached virtual address
 void virt_mem_flush_TLB_entry(virtual_addr_t addr);
@@ -53,16 +53,16 @@ error_t virt_mem_ptable_clear(ptable_t* table);
 error_t virt_mem_pdirectory_clear(pdirectory_t* pdir);
 
 // print a directory structure (for debug purposes)
-void virt_mem_print(address_space_t base);
+void virt_mem_print(vrec_table_t base);
 
 // returns the physical address associated with this virtual address
-physical_addr virt_mem_get_phys_addr(virtual_addr_t addr);
+physical_addr_t virt_mem_get_phys_addr(virtual_addr_t addr);
 
 // returns true if the page given by the virtual address is marked as present
 int virt_mem_is_page_present(virtual_addr_t addr);
 
 // creates a new address space and returns its physical address
-physical_addr virt_mem_create_address_space();
+physical_addr_t virt_mem_create_address_space();
 
 // maps the kernel pages to the directory given
 // error_t virt_mem_map_kernel_space(pdirectory* pdir);
@@ -73,6 +73,8 @@ uint32_t virt_mem_get_page_size();
 // returns the number of the page tables that are currently marked as present
 uint32_t virt_mem_count_present_tables(pdirectory_t* pdir);
 
-error_t virt_mem_set_foreign_address_space(address_space_t current, address_space_t space, physical_addr pdir);
+error_t virt_mem_set_foreign_address_space(vrec_table_t current, vrec_table_t space, physical_addr_t pdir);
+
+void virt_mem_set_recursive_table(vrec_table_t current, vrec_table_t target, physical_addr_t pdir);
 
 #endif

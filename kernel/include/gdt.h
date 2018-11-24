@@ -53,7 +53,7 @@ typedef struct gdt_ptr_struct_t
 extern gdt_entry_t gdt_entries[3];
 
 void gdt_set_gate(gdt_entry_t* gdt_base, uint16_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags);
-void gdtr_install(physical_addr base, uint32_t count, gdt_ptr_t* gdtr);
+void gdtr_install(physical_addr_t base, uint32_t count, gdt_ptr_t* gdtr);
 
 void gdt_print_gate(gdt_entry_t* gdt_base, uint16_t num);
 

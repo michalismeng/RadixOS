@@ -26,7 +26,7 @@ void print_to_screen(char* msg, uint32_t length)
     }
 }
 
-uint32_t map_page(uint32_t* page_directory, physical_addr pa, virtual_addr_t va)
+uint32_t map_page(uint32_t* page_directory, physical_addr_t pa, virtual_addr_t va)
 {
     static uint32_t dummy_space_index = 4096; 
 
@@ -72,7 +72,7 @@ void initializer_main(multiboot_info_t* mbd, unsigned int magic)
     // setup kernel virtual pages
     for(uint32_t index = 0; index < kernel_pages; index++)
     {
-        physical_addr pa = KERNEL_PHYSICAL_START + index * PAGE_SIZE;
+        physical_addr_t pa = KERNEL_PHYSICAL_START + index * PAGE_SIZE;
         virtual_addr_t  va = KERNEL_START + index * PAGE_SIZE;
 
         uint32_t current_index = map_page(page_directory, pa, va);
@@ -88,7 +88,7 @@ void initializer_main(multiboot_info_t* mbd, unsigned int magic)
     // setup kernel initializer virtual pages as identity
     for(uint32_t index = 0; index < init_pages; index++)
     {
-        physical_addr pa = (uint32_t)&__kernel_init_start + index * PAGE_SIZE;
+        physical_addr_t pa = (uint32_t)&__kernel_init_start + index * PAGE_SIZE;
         virtual_addr_t  va = pa;
 
         uint32_t current_index = map_page(page_directory, pa, va);
@@ -106,7 +106,7 @@ void initializer_main(multiboot_info_t* mbd, unsigned int magic)
     // identity map the first 3 MB to be able to print to the screen and setup the memory manager after enabling paging
     for(uint32_t index = 0; index < 512 + 256; index++)
     {
-        physical_addr pa = index * PAGE_SIZE;
+        physical_addr_t pa = index * PAGE_SIZE;
         virtual_addr_t  va = pa;
 
         uint32_t current_index = map_page(page_directory, pa, va);
