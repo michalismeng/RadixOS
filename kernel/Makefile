@@ -6,7 +6,9 @@ AS := $$elf_as# 		path to cross assembler		(i686-elf-as)
 SOURCES := $(wildcard *.c)\
 		   $(wildcard clock/*.c)\
 		   $(wildcard sync/*.c)\
-		   $(wildcard ipc/*.c)
+		   $(wildcard ipc/*.c)\
+		   $(wildcard process/*.c)
+
 ASSEMS 	:= $(wildcard *.s)			# .s files are compiled with gcc assembler
 NASMS	:= $(wildcard *.asm)\
 		   $(wildcard sync/*.asm)	# .asm files are compiled with nasm

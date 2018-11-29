@@ -20,7 +20,7 @@
 #include <vm_contract.h>
 #include <rtc.h>
 #include <tss.h>
-#include <process.h>
+#include <process/process.h>
 #include <ipc/mailbox.h>
 #include <mem_alloc.h>
 

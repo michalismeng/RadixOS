@@ -4,6 +4,7 @@
 #include <per_cpu_data.h>
 #include <debug.h>
 #include <isr.h>
+#include <mem_manager_virt.h>
 
 // void lapic_error_callback(iregisters_t* regs)
 // {
@@ -13,8 +14,10 @@
 
 void lapic_enable(physical_addr_t base_addr)
 {
-    volatile uint32_t val = reg_readl(base_addr, LAPIC_SPURIOUS_INTERRUPT);
+    if(!virt_mem_is_page_present((uint32_t)base_addr & (~0xfff)))
+        virt_mem_map_page(virt_mem_get_self_recursive_table(), (uint32_t)base_addr & (~0xfff), (uint32_t)base_addr & (~0xfff), VIRT_MEM_DEFAULT_PTE_FLAGS);
 
+    volatile uint32_t val = reg_readl(base_addr, LAPIC_SPURIOUS_INTERRUPT);
 
     // enable the lapic only if not already enabled
     // printfln("processor 1 starts lapic");

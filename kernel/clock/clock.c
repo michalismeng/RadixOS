@@ -52,9 +52,11 @@ static int32_t timer_callback(trap_frame_t* regs)
     per_cpu_write(PER_CPU_OFFSET(lapic_count), per_cpu_read(PER_CPU_OFFSET(lapic_count)) + 1);
 
     // only the BSP should update the system time
-    if(cpu_is_bsp){
+    if(cpu_is_bsp)
         update_system_time();
-    }
+
+    // reschedule
+    // TODO: update time stats (but we dot not have time stats for threads yet)
 
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
 
@@ -82,32 +84,32 @@ void clock_task_entry_point()
     }
 
     //! send message example
-    if(cpu_is_bsp)
-    {
-        message_t msg;
-        msg.src = get_current_thread()->mailbox->mid;
-        msg.dst = get_current_thread()->mailbox->mid + 1;
+    // if(cpu_is_bsp)
+    // {
+    //     message_t msg;
+    //     msg.src = get_current_thread()->mailbox->mid;
+    //     msg.dst = get_current_thread()->mailbox->mid + 1;
 
-        msg.func = 15;
-        printfln("sending message to: %u from %u", msg.dst, msg.src);
-        send(&msg);
-        printfln("mail sent");
-        msg.func = 16;
-        send(&msg);
-        printfln("mail 2 sent");
-    }
-    else
-    {
-        for(int i = 0; i < 20000000; i++);
+    //     msg.func = 15;
+    //     printfln("sending message to: %u from %u", msg.dst, msg.src);
+    //     send(&msg);
+    //     printfln("mail sent");
+    //     msg.func = 16;
+    //     send(&msg);
+    //     printfln("mail 2 sent");
+    // }
+    // else
+    // {
+    //     for(int i = 0; i < 20000000; i++);
 
-        message_t msg;
-        printfln("start receiving. sem recv: %u", get_current_thread()->mailbox->lock.sem_recv.count);
-        receive(get_current_thread()->mailbox, &msg);
+    //     message_t msg;
+    //     printfln("start receiving. sem recv: %u", get_current_thread()->mailbox->lock.sem_recv.count);
+    //     receive(get_current_thread()->mailbox, &msg);
 
-        acquire_spinlock(&lock);
-        printfln("received message from: %u to %u\nfunc: %u", msg.src, msg.dst, msg.func);
-        release_spinlock(&lock);
-    }
+    //     acquire_spinlock(&lock);
+    //     printfln("received message from: %u to %u\nfunc: %u", msg.src, msg.dst, msg.func);
+    //     release_spinlock(&lock);
+    // }
 
     while(1)
 	{

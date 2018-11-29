@@ -34,10 +34,10 @@ int32_t page_fault_handler(trap_frame_t* regs)
 
     if(page_fault_error_is_user(regs->err_code))
         PANIC("\nSIGSEGV");
-	// else
-		// PANIC("KERNEL ERROR! BSOD");
+	else
+		PANIC("KERNEL ERROR! BSOD");
 
-	virt_mem_map_page(virt_mem_get_self_recursive_table(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
+	// virt_mem_map_page(virt_mem_get_self_recursive_table(), cr2, cr2, VIRT_MEM_DEFAULT_PTE_FLAGS);
 
 	return 0;
 }
@@ -299,8 +299,6 @@ physical_addr_t virt_mem_create_address_space()
 	pdirectory_t* dir = (pdirectory_t*)phys_mem_alloc_above_1mb();
 	if (!dir)
 		return 0;
-
-	printfln("new directory at: %h", dir);
 
 	virt_mem_set_recursive_table(virt_mem_get_self_recursive_table(), virt_mem_get_foreign_recursive_table(), dir);
 

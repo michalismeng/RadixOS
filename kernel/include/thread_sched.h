@@ -2,7 +2,7 @@
 #define THREAD_SCHED_27112016
 
 #include <types.h>
-#include <process.h>
+#include <process/process.h>
 #include <sync/spinlock.h>
 
 #define NUMBER_PRIORITIES 8

@@ -35,6 +35,9 @@ enum error_t
 #define PTR *
 #define REF &
 
+#define PUBLIC
+#define PRIVATE static
+
 #define INVALID_FD -1
 #define MAX_IO (size_t)-1 - 1
 #define INVALID_IO (size_t)-1
