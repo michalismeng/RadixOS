@@ -21,25 +21,6 @@ uint32_t scheduler_get_first_non_empty(thread_sched_t* scheduler)
 	return result;
 }
 
-// add a new thread to the scheduler
-void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread)
-{
-    uint32_t priority = thread->priotity;
-
-    if(scheduler->ready_tails[priority] == 0)
-    {
-        scheduler->ready_tails[priority] = scheduler->ready_heads[priority] = thread;
-        thread->next = thread->prev = 0;
-    }
-    else
-    {
-        scheduler->ready_tails[priority]->next = thread;
-        thread->prev = scheduler->ready_tails[priority];
-        thread->next = 0;
-        scheduler->ready_tails[priority] = thread;
-    }
-}
-
 // removes the head of the ready queue indexed by 'q_index'
 TCB* scheduler_remove_ready(thread_sched_t* scheduler, uint32_t q_index)
 {
@@ -108,6 +89,26 @@ void scheduler_current_start()
     scheduler_current_execute();
 }
 
+
+void scheduler_add_ready(TCB* thread)
+{
+    thread_sched_t* scheduler = &get_cpu_storage(thread->exec_cpu)->scheduler;
+    uint32_t priority = thread->priotity;
+
+    if(scheduler->ready_tails[priority] == 0)
+    {
+        scheduler->ready_tails[priority] = scheduler->ready_heads[priority] = thread;
+        thread->next = thread->prev = 0;
+    }
+    else
+    {
+        scheduler->ready_tails[priority]->next = thread;
+        thread->prev = scheduler->ready_tails[priority];
+        thread->next = 0;
+        scheduler->ready_tails[priority] = thread;
+    }
+}
+
 TCB* scheduler_evict_thread(thread_sched_t* scheduler, trap_frame_t* current_frame)
 {
     if(scheduler->current_thread)
@@ -125,7 +126,7 @@ TCB* scheduler_preempt_thread(thread_sched_t* scheduler, trap_frame_t* current_f
 {
     TCB* thread = scheduler_evict_thread(scheduler, current_frame);
     if(thread)
-        scheduler_add_ready(scheduler, thread);
+        scheduler_add_ready(thread);
 
     return thread;
 }

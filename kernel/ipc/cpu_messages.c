@@ -55,7 +55,7 @@ PRIVATE void handle_awaken(message_t* msg, trap_frame_t* frame)
     TCB* thread = (TCB*)msg->payload.msg_ptr1.ptr;
     thread_sched_t* scheduler = &get_cpu_storage(get_cpu_id)->scheduler;
 
-    scheduler_add_ready(scheduler, thread);
+    scheduler_add_ready(thread);
     scheduler_preempt_thread(scheduler, frame);
 
     scheduler_schedule_thread(scheduler);

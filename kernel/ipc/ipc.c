@@ -82,6 +82,11 @@ error_t receive(mailbox_t* recv_mbox, message_t* msg)
     return ERROR_OCCUR;
 }
 
+error_t receive_current(message_t* msg)
+{
+    return receive(get_current_thread()->mailbox, msg);
+}
+
 error_t acknowledge(message_t* msg)
 {
     mailbox_t* mbox = get_mailbox(msg->dst);

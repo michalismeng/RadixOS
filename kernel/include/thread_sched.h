@@ -32,14 +32,14 @@ typedef struct thread_sched
 // initialize a thread scheduler
 void scheduler_init(thread_sched_t* scheduler);
 
-
 // starts scheduling on the current cpu
 void scheduler_current_start();
 
 // executes the currently selected thread on the current core
 void scheduler_current_execute();
 
-void scheduler_add_ready(thread_sched_t* scheduler, TCB* thread);
+// add a new thread to the scheduler
+void scheduler_add_ready(TCB* thread);
 
 // removes the currently running thread and save its context
 TCB* scheduler_evict_thread(thread_sched_t* scheduler, trap_frame_t* current_frame);

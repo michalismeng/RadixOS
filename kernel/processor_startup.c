@@ -127,13 +127,13 @@ void final_processor_setup()
 
 	// printfln("table 15 value: %u", virt_mem_get_current_directory()->entries[15]);
 
-	// // if(elf_load(hdr) != ERROR_OK)
-	// // 	PANIC("Could not load elf");
+	// if(elf_load(hdr) != ERROR_OK)
+	// 	PANIC("Could not load elf");
 	// PANIC("END");
 	
-    scheduler_add_ready(scheduler, clock_task);
-    scheduler_add_ready(scheduler, idle_thread);
-	// scheduler_add_ready(scheduler, user_task);
+    scheduler_add_ready(clock_task);
+    scheduler_add_ready(idle_thread);
+	// scheduler_add_ready(user_task);
 
 	printfln("starting processor");
 
